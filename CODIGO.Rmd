@@ -1,0 +1,2798 @@
+---
+title: "Empresas de Alto Crecimiento en Colombia"
+author: "Bianca Palacios"
+output: 
+  html_document:
+    number_sections: yes   # numera los titulos
+    toc: TRUE               # incluye o no el indice
+    toc_float: TRUE         # incluye o no indice flotante
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r load_libraries, include=FALSE}
+library(readxl)
+library(dplyr)
+library(tidyverse)
+library(ggplot2)
+#install.packages("corrplot")
+library(corrplot)
+library(psych)
+
+#install.packages("mvnormtest")
+library(mvnormtest)
+
+library(tidyverse)
+#library(DT)
+#install.packages("kableExtra")
+library(kableExtra)
+
+library(lubridate)
+
+library(caret)
+library(rpart)
+library(rpart.plot)
+
+library(dendextend)
+library(factoextra)
+library(NbClust)
+library(pvclust)
+library(flexclust)
+
+library(randomForest)
+library(class)
+library(kknn)
+library("e1071") # libreria para svm
+library(ggeffects) # efectos en modelos de regresion
+library(sjPlot) # tablas de regresion
+library(haven) # datos en formato .dta
+library(boot)
+
+library(ROCR) # curvas roc
+library(pROC)
+
+#install.packages("cluster")
+library(cluster)
+```
+
+
+# LECTURA BASES
+
+Primero, se cargará las bases de datos. Dado que los datos están almacenados en formato .xlsx, se empleará la función read_excel().
+
+
+```{r message= FALSE, warning=FALSE}
+setwd('D:/DOCUMENTOS/Desktop/BIANCA/PEC3/PRUEBA 3 CODIGO TESIS/bases de la tesis')
+
+balance_anio1 <- read_excel("Bal2017.xlsx", sheet='Linea4_Bal2017')
+balance_anio1 <- as.data.frame(balance_anio1)  # Para ver el contenido
+balance_anio1$RAGE52 <- as.numeric(balance_anio1$RAGE52)
+head(balance_anio1)
+```
+
+```{r message= FALSE, warning=FALSE}
+setwd('D:/DOCUMENTOS/Desktop/BIANCA/PEC3/PRUEBA 3 CODIGO TESIS/bases de la tesis')
+
+balance_anio2 <- read_excel("Bal2018.xlsx", sheet='Linea4_Bal2018')
+balance_anio2 <- as.data.frame(balance_anio2)  # Para ver el contenido
+head(balance_anio2)
+```
+
+```{r message= FALSE, warning=FALSE}
+setwd('D:/DOCUMENTOS/Desktop/BIANCA/PEC3/PRUEBA 3 CODIGO TESIS/bases de la tesis')
+
+balance_anio3 <- read_excel("Bal2019.xlsx", sheet='Linea4_Bal2019')
+balance_anio3 <- as.data.frame(balance_anio3)  # Para ver el contenido
+head(balance_anio3)
+```
+
+```{r message= FALSE, warning=FALSE}
+setwd('D:/DOCUMENTOS/Desktop/BIANCA/PEC3/PRUEBA 3 CODIGO TESIS/bases de la tesis')
+
+balance_anio4 <- read_excel("Bal2020.xlsx", sheet='Datos_Bal2020')
+balance_anio4 <- as.data.frame(balance_anio4)  # Para ver el contenido
+head(balance_anio4)
+```
+
+```{r message= FALSE, warning=FALSE}
+setwd('D:/DOCUMENTOS/Desktop/BIANCA/PEC3/PRUEBA 3 CODIGO TESIS/bases de la tesis')
+
+balance_anio5 <- read_excel("Bal2021.xlsx", sheet='Datos_Bal2021')
+balance_anio5 <- as.data.frame(balance_anio5)  # Para ver el contenido
+head(balance_anio5)
+```
+
+Dimensiones de las bases de Balance
+```{r message= FALSE, warning=FALSE}
+dim(balance_anio1)
+dim(balance_anio2)
+dim(balance_anio3)
+dim(balance_anio4)
+dim(balance_anio5)
+```
+# Exploración de los valores de las variables
+
+El software R usa la función 'summary' para  mostrar un resumen de las variables cuantitativas, como mínimo, máximo, media, mediana y cuartiles. Para las variables cualitativas solo se muestra la longitud de los caracteres. También se obtiene el número de valores NA que puede presentar cada variable.
+
+```{r message= FALSE, warning=FALSE}
+summary(balance_anio1)
+
+#summary(balance_anio2)
+
+#summary(balance_anio3)
+
+#summary(balance_anio4)
+
+#summary(balance_anio5)
+```
+
+
+# LIMPIEZA DE LAS BASES
+
+Después de examinar los datos de la base con la que se trabajará, se procede a seleccionar los registros y/o variables que serán de utilidad para el resto del estudio.
+
+## Eliminación de registros duplicados en cada base de balance.
+```{r message= FALSE, warning=FALSE}
+# contar duplicados
+nrow(balance_anio1[duplicated(balance_anio1), ]) # duplicados en balance_anio1
+nrow(balance_anio2[duplicated(balance_anio2), ]) # duplicados en balance_anio2
+nrow(balance_anio3[duplicated(balance_anio3), ]) # duplicados en balance_anio3
+nrow(balance_anio4[duplicated(balance_anio4), ]) # duplicados en balance_anio4
+nrow(balance_anio5[duplicated(balance_anio5), ]) # duplicados en balance_anio5
+```
+
+```{r message= FALSE, warning=FALSE}
+# eliminar duplicados
+balance_anio1 <- distinct(balance_anio1) # duplicados en balance_anio1
+balance_anio2 <- distinct(balance_anio2) # duplicados en balance_anio2
+balance_anio3 <- distinct(balance_anio3) # duplicados en balance_anio3
+balance_anio4 <- distinct(balance_anio4) # duplicados en balance_anio4
+balance_anio5 <- distinct(balance_anio5) # duplicados en balance_anio5
+```
+
+Nueva dimensión de las bases de balances de los años 2017 al 2021
+
+```{r message= FALSE, warning=FALSE}
+dim(balance_anio1)
+dim(balance_anio2)
+dim(balance_anio3)
+dim(balance_anio4)
+dim(balance_anio5)
+```
+
+## Convertir na en cero
+
+```{r message= FALSE, warning=FALSE}
+# REEMPLAZAR VALORES NA CON 0
+balance_anio1 <- mutate_all(balance_anio1, ~replace(., is.na(.), 0))
+balance_anio2 <- mutate_all(balance_anio2, ~replace(., is.na(.), 0))
+balance_anio3 <- mutate_all(balance_anio3, ~replace(., is.na(.), 0))
+balance_anio4 <- mutate_all(balance_anio4, ~replace(., is.na(.), 0))
+balance_anio5 <- mutate_all(balance_anio5, ~replace(., is.na(.), 0))
+```
+
+
+## Eliminación de registros.
+Se deberían excluir los individuos de actividades de intermediación financiera y de seguros y de la administración local, regional y/oestatal
+
+Se identifican mediante los codigos CIIU dentro de la base de datos 'Datos-Empresa-super'
+
+```{r message= FALSE, warning=FALSE}
+setwd('D:/DOCUMENTOS/Desktop/BIANCA/PEC3/PRUEBA 3 CODIGO TESIS/bases de la tesis')
+
+empresas <- read_excel("Datos-Empresa-super.xlsx")
+empresas <- as.data.frame(empresas)  # Para ver el contenido
+head(empresas)
+```
+
+Se revisa si existen registro de empresas duplicadas
+
+```{r message= FALSE, warning=FALSE}
+dim(empresas)
+
+# contar duplicados
+#empresas[duplicated(empresas), ]
+nrow(empresas[duplicated(empresas), ]) # duplicados en empresas
+
+# eliminar duplicados
+empresas <- distinct(empresas) # duplicados en empresas
+dim(empresas)
+```
+
+
+Se eliminan las empresas:
+
+* Sector K: Actividades financieras y de seguros
+
+* Sector O: Administración pública y defensa; planes de seguridad social de afiliación obligatoria.
+
+```{r message= FALSE, warning=FALSE}
+codigos_empresas_del <- c('K','O')
+```
+
+
+```{r message= FALSE, warning=FALSE}
+empresas_filtradas <- empresas %>%
+  # extraer la letra del codigo  
+  mutate(CODIGO=str_sub(CIIU, 1, 1)) %>%
+  # eliminar las que empiezan con K,O
+  filter(!CODIGO %in% codigos_empresas_del)
+
+head(empresas_filtradas)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+# se comprueba que se eliminaron
+empresas_filtradas %>% filter(CODIGO %in% codigos_empresas_del)
+```
+
+Ahora se trabajara con la base de datos 'empresas_filtradas'. Esta base contiene informacion de las 11 833 empresas que se usara para determinar a las que son de Alto Crecimiento.
+
+```{r message= FALSE, warning=FALSE}
+# numero de empresas a estudiar
+dim(empresas_filtradas)
+
+# se guarda la base de las empresas filtradas
+write.csv2(empresas_filtradas, "empresas_filtradas.csv")
+```
+
+
+# TABLA QUE INDICA LAS TIPOLOGIAS DE LAS EMPRESAS QUE SE ESTUDIAN
+
+```{r message= FALSE, warning=FALSE}
+# informacion empresas
+empresas_filtradas$TIPOLOGIA <- as.factor(empresas_filtradas$TIPOLOGIA)
+
+empresas_filtradas$SECTOR_ACTIVIDAD <- as.factor(empresas_filtradas$SECTOR_ACTIVIDAD)
+
+empresas_filtradas$LOCALIDAD <- as.factor(empresas_filtradas$LOCALIDAD)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+# tabla de la tipologia de las empresas a estudiar
+tabla_tipologia <- table(empresas_filtradas$TIPOLOGIA)
+kbl(tabla_tipologia)
+```
+
+
+# TABLA QUE INDICA LOS SECTORES DE LAS EMPRESAS QUE SE ESTUDIAN
+
+```{r message= FALSE, warning=FALSE}
+# lectura codigos de actividad ciiu
+setwd('D:/DOCUMENTOS/Desktop/BIANCA/PEC3/PRUEBA 3 CODIGO TESIS/bases de la tesis')
+
+act_ciiu <- read_excel("Codigos Actividad CIIU.xlsx", sheet = "Sectores de Actividad")
+act_ciiu <- act_ciiu %>% select(1,2)
+```
+
+```{r message= FALSE, warning=FALSE}
+# unir con la base de empresas_filtradas
+empresas_filtradas <- empresas_filtradas %>%
+  rename(SECTOR=CODIGO)
+empresas_base <- left_join(empresas_filtradas, act_ciiu, by=c('SECTOR'='SECTOR'))
+empresas_base$SECTOR <- as.factor(empresas_base$SECTOR)
+empresas_base$DESCRIPCION_SECTOR <- as.factor(empresas_base$DESCRIPCION_SECTOR)
+```
+
+```{r message= FALSE, warning=FALSE}
+tabla_sector <- empresas_base %>%
+  group_by(SECTOR, DESCRIPCION_SECTOR) %>%
+  summarise(total = n())
+kbl(tabla_sector)
+
+#guardar en un archivo csv
+write.csv2(tabla_sector,"tabla_sector.csv")
+```
+
+
+# Filtro bases de balances 2017-2021
+
+Para definir la variable Target EAC, para identificar si la empresa es de Alto Crecimiento o no, se empleara los datos de Ventas RAIE (ingresos operacionales), presente en cada base de balance. 
+
+
+```{r message= FALSE, warning=FALSE}
+empresas_anio1 <- merge(x = empresas_filtradas, y = balance_anio1, by = c("ID"))
+
+# se guarda la base de balance anio1 con las empresas filtradas
+write.csv2(empresas_anio1, "balance_anio1_filtrada.csv")
+
+#seleccion de las variables de interes
+anio1 <- empresas_anio1 %>% 
+  select(ID, CIIU, RAIE) %>%
+  rename(anio_1 = RAIE) # cambio de nombre de la variable RAIE a anio_ y el anio que le corresponde
+
+head(anio1)
+dim(anio1)
+```
+
+```{r message= FALSE, warning=FALSE}
+#balance_anio2
+empresas_anio2 <- merge(x = empresas_filtradas, y = balance_anio2, by = c("ID"))
+
+# se guarda la base de balance anio2 con las empresas filtradas
+write.csv2(empresas_anio2, "balance_anio2_filtrada.csv")
+
+#seleccion de las variables de interes
+anio2 <- empresas_anio2 %>% 
+  select(ID, CIIU, RAIE) %>%
+  rename(anio_2 = RAIE) # cambio de nombre de la variable RAIE a anio_ y el anio que le corresponde
+
+head(anio2)
+dim(anio2)
+```
+
+```{r message= FALSE, warning=FALSE}
+empresas_anio3 <- merge(x = empresas_filtradas, y = balance_anio3, by = c("ID"))
+
+# se guarda la base de balance anio3 con las empresas filtradas
+write.csv2(empresas_anio3, "balance_anio3_filtrada.csv")
+
+#seleccion de las variables de interes
+anio3 <- empresas_anio3 %>% 
+  select(ID, CIIU, RAIE) %>%
+  rename(anio_3 = RAIE) # cambio de nombre de la variable RAIE a anio_ y el anio que le corresponde
+
+head(anio3)
+dim(anio3)
+```
+
+```{r message= FALSE, warning=FALSE}
+empresas_anio4 <- merge(x = empresas_filtradas, y = balance_anio4, by = c("ID"))
+
+# se guarda la base de balance anio4 con las empresas filtradas
+write.csv2(empresas_anio4, "balance_anio4_filtrada.csv")
+
+#seleccion de las variables de interes
+anio4 <- empresas_anio4 %>% 
+  select(ID, CIIU, RAIE) %>%
+  rename(anio_4 = RAIE) # cambio de nombre de la variable RAIE a anio_ y el anio que le corresponde
+
+head(anio4)
+dim(anio4)
+```
+
+```{r message= FALSE, warning=FALSE}
+empresas_anio5 <- merge(x = empresas_filtradas, y = balance_anio5, by = c("ID"))
+
+# se guarda la base de balance anio5 con las empresas filtradas
+write.csv2(empresas_anio5, "balance_anio5_filtrada.csv")
+
+#seleccion de las variables de interes
+anio5 <- empresas_anio5 %>% 
+  select(ID, CIIU, RAIE) %>%
+  rename(anio_5 = RAIE) # cambio de nombre de la variable RAIE a anio_ y el anio que le corresponde
+
+head(anio5)
+dim(anio5)
+```
+
+
+## unir en una sola base de datos
+
+Se procede a unir en una sola base de datos los balances del 2017 al 2021 de las empresas a estudiar.
+```{r message= FALSE, warning=FALSE}
+union_empresas <- merge(x = anio1, y = merge(anio2, merge(anio3, merge(anio4, anio5))), all.x = TRUE)
+union_empresas <- union_empresas %>% arrange(ID)
+head(union_empresas)
+dim(union_empresas)
+#View(union_empresas)
+```
+
+Eliminacion de los duplicados que puedan existir
+
+```{r message= FALSE, warning=FALSE}
+# contar duplicados
+union_empresas[duplicated(union_empresas), ]
+nrow(union_empresas[duplicated(union_empresas), ]) # duplicados en union_empresas
+
+# eliminar duplicados
+union_empresas <- distinct(union_empresas) # duplicados en union_empresas
+```
+
+Reemplazar los valores NA con valor 0.
+
+A los valores NA de la variables de anio 1 al 5, se les reemplaza con valor 0, lo que significa que se asume en ese anio esa empresa tuvo ejercicio sin datos de ventas y supone un crecimiento en ventas del 0%.
+
+```{r message= FALSE, warning=FALSE}
+union_empresas <- mutate_all(union_empresas, ~replace(., is.na(.), 0))
+```
+
+```{r message= FALSE, warning=FALSE}
+dim(union_empresas)
+```
+
+La base final de las empresas a estudiar su evolucion de los años 2017 al 2021 está compuesta de 11 833 empresas y 7 variables con el valor RAIE de cada año y las variables de identificacion de las empresas ID, CIIU.
+
+
+# Clasificación de la empresas EAC
+
+Para esta practica, se han seleccionado las empresas que estan presentes en los balances de los 5 anios, mínimo 4, aun cuando presentan valor RAIE de cero. A la final, el numero de empresas a identificar como de Alto Crecimiento o NO son 11 833 `dim(union_empresas)[1]`. 
+
+
+## CRECIMIENTO AÑO A AÑO
+
+```{r message= FALSE, warning=FALSE}
+head(union_empresas)
+```
+
+Aplicando la fórmula:
+
+$$
+Var_t = \frac{ingreso_t}{ingreso_{t-1}} - 1 > 40%
+$$
+
+para identificar a las empresas de Alto Crecimiento en el periodo, se calcula la tasa de crecimiento anual según el valor de sus ingresos por ventas.
+
+```{r message= FALSE, warning=FALSE}
+crecimiento_empresas <- union_empresas %>%
+  mutate(crecimiento_1 = round((anio_2/anio_1)-1,4),
+         porc_crec_anio_1_2 = round(crecimiento_1*100,2),
+         crecimiento_2 = round((anio_3/anio_2)-1,4),
+         porc_crec_anio_2_3 = round(crecimiento_2*100,2),
+         crecimiento_3 = round((anio_4/anio_3)-1,4),
+         porc_crec_anio_3_4 = round(crecimiento_3*100,2),
+         crecimiento_4 = round((anio_5/anio_4)-1,4),
+         porc_crec_anio_4_5 = round(crecimiento_4*100,2)) %>%
+  select(ID, CIIU, anio_1, crecimiento_1, porc_crec_anio_1_2,
+         anio_2, crecimiento_2, porc_crec_anio_2_3,
+         anio_3, crecimiento_3, porc_crec_anio_3_4,
+         anio_4, crecimiento_4, porc_crec_anio_4_5, 
+         anio_5)
+
+# y los inf con cero tambien
+crecimiento_empresas <- do.call(data.frame,lapply
+              (crecimiento_empresas, function(value) replace (value, is.infinite(value),NA)))
+
+# REEMPLAZAR VALORES NA CON 0
+crecimiento_empresas <- mutate_all(crecimiento_empresas, ~replace(., is.na(.), 0))
+
+head(crecimiento_empresas)
+```
+
+se guarda en una base aparte el valor del anio 5 para comparar despues
+
+```{r message= FALSE, warning=FALSE}
+crecimiento_anio5 <- crecimiento_empresas %>%
+  select(ID, CIIU, crecimiento_4, porc_crec_anio_4_5, anio_5)
+
+write.csv(crecimiento_anio5, "crecimiento_anio5.csv")
+```
+
+
+Solo se toman los primeros 4 anios para identificar a empresas EAC dentro de los 3 crecimientos de los anios 1 al anio 4.
+
+```{r message= FALSE, warning=FALSE}
+crecimiento_empresas <- crecimiento_empresas %>%
+  select(ID, CIIU, anio_1, anio_2, anio_3, anio_4,
+         crecimiento_1, porc_crec_anio_1_2,
+         crecimiento_2, porc_crec_anio_2_3,
+         crecimiento_3, porc_crec_anio_3_4)
+head(crecimiento_empresas)
+```
+
+
+## Criterio para EAC
+
+Seleccionar las empresas que en 3 ejercicios tienen ventas de mas de 40% comparando el crecimiento anio1-anio2, anio2-anio3, anio3-anio4.
+
+```{r message= FALSE, warning=FALSE}
+empresas_eac <- crecimiento_empresas %>%
+  filter(porc_crec_anio_1_2 > 40, porc_crec_anio_2_3 > 40, porc_crec_anio_3_4 > 40) %>%
+  select(ID, CIIU,porc_crec_anio_1_2, porc_crec_anio_2_3, porc_crec_anio_3_4)
+head(empresas_eac)
+dim(empresas_eac)
+```
+
+Considerando solo las empresas que presentan ganancias entre los años 2017 y 2020, se seleccionan las empresas que en 3 ejercicios consecutivos tienen un crecimiento anual de más de 40% que el año anterior. De esta forma se identificaron `dim(empresas_eac)[1]` empresas de Alto Crecimiento.
+
+Se identifica a las empresas EAC con el codigo 1 y no EAC con 0.
+
+```{r message= FALSE, warning=FALSE}
+# Se identifica a las empresas de alto crecimiento
+empresas_clas <- crecimiento_empresas
+empresas_clas$clase <- 0
+
+for(i in 1:dim(empresas_clas)[1]){
+  for(j in 1:dim(empresas_eac)[1]){
+    if(crecimiento_empresas$ID[i] == empresas_eac$ID[j]){
+      empresas_clas$clase[i] <-1
+    }
+  }
+}
+
+head(empresas_clas,10)
+dim(empresas_clas)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+# num empresas que son eac
+dim(empresas_clas[empresas_clas$clase==1,])
+
+# num empresas que no son eac
+dim(empresas_clas[empresas_clas$clase==0,])
+```
+
+```{r message= FALSE, warning=FALSE}
+tabla_eac <- table(empresas_clas$clase)
+kbl(tabla_eac)
+```
+
+## guardar base de datos
+
+```{r message= FALSE, warning=FALSE}
+## guardar base de datos
+write.csv(empresas_clas, "empresas_eac_anio4.csv")
+```
+
+
+### grafico porcentaje de crecimiento en ventas entre EAC y NO EAC del anio 1 al anio 4
+
+```{r message= FALSE, warning=FALSE}
+# analisis de porcentaje de crecimiento en ventas entre EAC y NO EAC del anio 1 al anio 4
+empresas_clas1 <- read.csv2("empresas_eac_anio4.csv", stringsAsFactors = T,encoding = 'utf8', header = TRUE, sep = ",")
+empresas_clas1 <- empresas_clas[-1] # eliminar la primera columna que a veces lee mal
+dim(empresas_clas1)
+head(empresas_clas1)
+
+anios = rep(c(2017,2018,2019,2020),2) ####crear los años
+
+valn = empresas_clas1 %>% group_by(clase) %>%
+  summarise(a1 = mean(as.double(anio_1)), 
+            a2 = mean(as.double(anio_2)),
+            a3 = mean(as.double(anio_3)),
+            a4 = mean(as.double(anio_4)))
+head(valn)
+
+pn = valn %>% pivot_longer(!clase,names_to = "f", values_to = "ventas")
+pn = mutate(pn,anios) %>% select(-f) %>%
+  rename("Tipo" = clase)
+pn$Tipo = ifelse(pn$Tipo == 0, "NO EAC","EAC")
+head(pn,10)
+
+ggplot(pn, aes(x = anios, y = ventas, color = Tipo)) +
+  geom_line(size = 1.5) +
+  geom_point(size=3, shape=21, fill="white") +
+  xlab("Anio") +
+  ylab("Crecimiento en ventas") +
+  theme_minimal()
+
+```
+
+## Empresas EAC en el año 5
+
+Con los valores de venta del anio 5 se procede a estimar las empresas que siguen siendo EAC en el año 5 o en este año se convierten en EAC.
+
+```{r message= FALSE, warning=FALSE}
+# unir con crecimiento_anio5
+empresas_clas_anio5 <- merge(empresas_clas, crecimiento_anio5, by=c("ID","CIIU"))
+
+# clasificacion2 de clase
+empresas_clas_anio5 <- empresas_clas_anio5 %>%
+  mutate(clase2 = ifelse((porc_crec_anio_4_5>40 & clase==1) | (porc_crec_anio_2_3>40 & porc_crec_anio_3_4>40 & porc_crec_anio_4_5>40),1,0))
+
+head(empresas_clas_anio5)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+# num empresas que son eac aun en anio 5
+dim(empresas_clas_anio5[empresas_clas_anio5$clase2==1,])
+
+# num empresas que no son eac en anio 5
+dim(empresas_clas_anio5[empresas_clas_anio5$clase2==0,])
+```
+
+
+```{r message= FALSE, warning=FALSE}
+# guardar la base
+write.csv(empresas_clas_anio5, "empresas_eac_anio5.csv")
+```
+
+
+```{r message= FALSE, warning=FALSE}
+tabla_eac2 <- table(empresas_clas_anio5$clase2)
+kbl(tabla_eac2)
+```
+
+### Grafico porcentaje de crecimiento en ventas entre EAC y NO EAC del anio 1 al anio 5
+
+```{r message= FALSE, warning=FALSE}
+# analisis de porcentaje de crecimiento en ventas entre EAC y NO EAC del anio 1 al anio 5
+anios = rep(c(2017,2018,2019,2020,2021),2) ####crear los anios
+
+valn = empresas_clas_anio5 %>% group_by(clase2) %>%
+  summarise(a1 = mean(as.double(anio_1)), 
+            a2 = mean(as.double(anio_2)),
+            a3 = mean(as.double(anio_3)), 
+            a4 = mean(as.double(anio_4)),
+            a5 = mean(as.double(anio_5)))
+
+pn = valn %>% pivot_longer(!clase2,names_to = "f", values_to = "ventas")
+
+pn = mutate(pn,anios) %>% select(-f) %>%
+  rename("Tipo" = clase2 )
+
+pn$Tipo = ifelse(pn$Tipo == 0, "NO EAC","EAC")
+
+ggplot(pn, aes(x = anios, y = ventas, color = Tipo)) +
+  geom_line(size = 1.5) +
+  geom_point(size=3, shape=21, fill="white") +
+  xlab("Anio") +
+  ylab("Crecimiento en ventas") +
+  theme_minimal()
+```
+
+
+Para este estudio, se trabaja con la clasificacion de las empresas EAC en el anio 5.
+
+```{r message= FALSE, warning=FALSE}
+# base empresas del estudio final
+empresas_estudio_final <- empresas_filtradas %>%
+  # seleccionar las que estan en empresas_clas_anio5
+  filter(ID %in% empresas_clas_anio5$ID)
+
+# nueva base de empresas_filtradas
+write.csv(empresas_estudio_final, "empresas_estudio_final.csv")
+```
+
+
+Si se clasifican las empresas por actividad económica (sector del código CIIU), la mayor cantidad de EAC se encuentra ubicada en el sector de……
+
+```{r message= FALSE, warning=FALSE}
+# se añade la actividad economica de cada empresa estudiada
+actividad_clas <- left_join(empresas_estudio_final, empresas_clas_anio5, by=c("ID"="ID","CIIU"="CIIU"))
+# guardar la base de empresas y su clasificacion eac
+write.csv(actividad_clas, "empresas_clasificacion_eac.csv")
+
+setwd('D:/DOCUMENTOS/Desktop/BIANCA/PEC3/PRUEBA 3 CODIGO TESIS/bases de la tesis')
+
+act_ciiu <- read_excel("Codigos Actividad CIIU.xlsx", sheet = "Sectores de Actividad")
+act_ciiu <- act_ciiu %>% select(1,2)
+
+actividad_clas <- left_join(actividad_clas, act_ciiu, by=c("SECTOR"="SECTOR"))
+
+actividad_clas_EAC <- actividad_clas %>%
+  select(ID, CIIU, SECTOR, DESCRIPCION_SECTOR, clase2) %>%
+  filter(clase2==1)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+tabla_actividad <- actividad_clas_EAC %>%
+  group_by(SECTOR, DESCRIPCION_SECTOR) %>%
+  summarise(Frecuencia = n()) %>%
+  arrange(desc(Frecuencia))
+kbl(tabla_actividad)
+
+# guardar la tabla
+write.csv2(tabla_actividad,"tabla_actividad_eac.csv")
+```
+
+
+# ANALISIS VARIABLES DE INTERES
+
+## Cálculo de algunos Ratios que podrian ser útiles
+
+Para un mejor analisis de las empresas considerando sus variables de balances y estados de resultados, se opta por la creacion de radios que resuman los valores mas importantes dentro del balance de una empresa.
+
+* Tesoreria (ACC-ACC114)/PSC 
+* Liquidez ACC/PSC 
+* Solvencia AC/PS 
+* Endeudamiento PS/PN  
+* Rentabilidad R/RAIE 
+* Fondo Maniobra ACC-PSC 
+* Ratio de Cobertura de Intereses RA/RAGXFI
+
+
+```{r message= FALSE, warning=FALSE}
+# anio1
+base_anio1 <- empresas_anio1 %>%
+  select(ID, CIIU, AC:RIII)
+
+# REEMPLAZAR VALORES NA CON 0
+base_anio1 <- mutate_all(base_anio1, ~replace(., is.na(.), 0))
+# y los inf con cero tambien
+base_anio1 <- do.call(data.frame,lapply
+                      (base_anio1, function(value) replace (value, is.infinite(value),0)))
+
+# CREACION DE LOS RATIOS
+base_anio1 <- base_anio1 %>%
+  mutate(TESORERIA_ANIO_1 = (ACC-ACC114)/PSC,
+         LIQUIDEZ_ANIO_1 = ACC/PSC,
+         SOLVENCIA_ANIO_1 = AC/PS,
+         ENDEUDAMIENTO_ANIO_1 = PS/PT,
+         RENTABILIDAD_ANIO_1 = R/RAIE,
+         FONDO_MANIOBRA_ANIO_1 = ACC-PSC,
+         RATIO_COBERTURA_INTERES_ANIO_1 = RA/RAGXFI)
+# REEMPLAZAR VALORES NA CON 0
+base_anio1 <- mutate_all(base_anio1, ~replace(., is.na(.), 0))
+# y los inf con cero tambien
+base_anio1 <- do.call(data.frame,lapply
+                      (base_anio1, function(value) replace (value, is.infinite(value),0)))
+```
+
+
+```{r message= FALSE, warning=FALSE}
+# anio 2
+base_anio2 <- empresas_anio2 %>%
+  select(ID, CIIU, AC:RIII)
+
+# REEMPLAZAR VALORES NA CON 0
+base_anio2 <- mutate_all(base_anio2, ~replace(., is.na(.), 0))
+# y los inf con cero tambien
+base_anio2 <- do.call(data.frame,lapply
+                      (base_anio2, function(value) replace (value, is.infinite(value),0)))
+
+# CREACION DE LOS RATIOS
+base_anio2 <- base_anio2 %>%
+  mutate(TESORERIA_ANIO_2 = (ACC-ACC114)/PSC,
+         LIQUIDEZ_ANIO_2 = ACC/PSC,
+         SOLVENCIA_ANIO_2 = AC/PS,
+         ENDEUDAMIENTO_ANIO_2 = PS/PT,
+         RENTABILIDAD_ANIO_2 = R/RAIE,
+         FONDO_MANIOBRA_ANIO_2 = ACC-PSC,
+         RATIO_COBERTURA_INTERES_ANIO_2 = RA/RAGXFI)
+
+# REEMPLAZAR VALORES NA CON 0
+base_anio2 <- mutate_all(base_anio2, ~replace(., is.na(.), 0))
+# y los inf con cero tambien
+base_anio2 <- do.call(data.frame,lapply
+                      (base_anio2, function(value) replace (value, is.infinite(value),0)))
+```
+
+```{r message= FALSE, warning=FALSE}
+# anio 3
+base_anio3 <- empresas_anio3 %>%
+  select(ID, CIIU, AC:RIII)
+
+# REEMPLAZAR VALORES NA CON 0
+base_anio3 <- mutate_all(base_anio3, ~replace(., is.na(.), 0))
+# y los inf con cero tambien
+base_anio3 <- do.call(data.frame,lapply
+                      (base_anio3, function(value) replace (value, is.infinite(value),0)))
+
+# CREACION DE LOS RATIOS
+base_anio3 <- base_anio3 %>%
+  mutate(TESORERIA_ANIO_3 = (ACC-ACC114)/PSC,
+         LIQUIDEZ_ANIO_3 = ACC/PSC,
+         SOLVENCIA_ANIO_3 = AC/PS,
+         ENDEUDAMIENTO_ANIO_3 = PS/PT,
+         RENTABILIDAD_ANIO_3 = R/RAIE,
+         FONDO_MANIOBRA_ANIO_3 = ACC-PSC,
+         RATIO_COBERTURA_INTERES_ANIO_3 = RA/RAGXFI)
+
+# REEMPLAZAR VALORES NA CON 0
+base_anio3 <- mutate_all(base_anio3, ~replace(., is.na(.), 0))
+# y los inf con cero tambien
+base_anio3 <- do.call(data.frame,lapply
+                      (base_anio3, function(value) replace (value, is.infinite(value),0)))
+```
+
+
+```{r message= FALSE, warning=FALSE}
+# anio 4
+base_anio4 <- empresas_anio4 %>%
+  select(ID, CIIU, AC:RIII)
+
+# REEMPLAZAR VALORES NA CON 0
+base_anio4 <- mutate_all(base_anio4, ~replace(., is.na(.), 0))
+# y los inf con cero tambien
+base_anio4 <- do.call(data.frame,lapply
+                      (base_anio4, function(value) replace (value, is.infinite(value),0)))
+
+# CREACION DE LOS RATIOS
+base_anio4 <- base_anio4 %>%
+  mutate(TESORERIA_ANIO_4 = (ACC-ACC114)/PSC,
+         LIQUIDEZ_ANIO_4 = ACC/PSC,
+         SOLVENCIA_ANIO_4 = AC/PS,
+         ENDEUDAMIENTO_ANIO_4 = PS/PT,
+         RENTABILIDAD_ANIO_4 = R/RAIE,
+         FONDO_MANIOBRA_ANIO_4 = ACC-PSC,
+         RATIO_COBERTURA_INTERES_ANIO_4 = RA/RAGXFI)
+
+# REEMPLAZAR VALORES NA CON 0
+base_anio4 <- mutate_all(base_anio4, ~replace(., is.na(.), 0))
+# y los inf con cero tambien
+base_anio4 <- do.call(data.frame,lapply
+                      (base_anio4, function(value) replace (value, is.infinite(value),0)))
+```
+
+
+```{r message= FALSE, warning=FALSE}
+# anio 5
+base_anio5 <- empresas_anio5 %>%
+  select(ID, CIIU, AC:RIII)
+
+# REEMPLAZAR VALORES NA CON 0
+base_anio5 <- mutate_all(base_anio5, ~replace(., is.na(.), 0))
+# y los inf con cero tambien
+base_anio5 <- do.call(data.frame,lapply
+                      (base_anio5, function(value) replace (value, is.infinite(value),0)))
+
+# CREACION DE LOS RATIOS
+base_anio5 <- base_anio5 %>%
+  mutate(TESORERIA_ANIO_5 = (ACC-ACC114)/PSC,
+         LIQUIDEZ_ANIO_5 = ACC/PSC,
+         SOLVENCIA_ANIO_5 = AC/PS,
+         ENDEUDAMIENTO_ANIO_5 = PS/PT,
+         RENTABILIDAD_ANIO_5 = R/RAIE,
+         FONDO_MANIOBRA_ANIO_5 = ACC-PSC,
+         RATIO_COBERTURA_INTERES_ANIO_5 = RA/RAGXFI)
+
+# REEMPLAZAR VALORES NA CON 0
+base_anio5 <- mutate_all(base_anio5, ~replace(., is.na(.), 0))
+# y los inf con cero tambien
+base_anio5 <- do.call(data.frame,lapply
+                      (base_anio5, function(value) replace (value, is.infinite(value),0)))
+```
+
+Para la selección de las variables de interés para la creación de los modelos de clasificación se consideran variables obtenidas en los balances de cada empresa y muestran el total de activos corrientes (ACC), total de activos no corrientes (ACL), total de gastos (RAG). Se escogen porque aportan mas información. Se incluyen los ratios creados anteriormente.
+
+# Creacion de la base de estudio con las variables de crecimiento del año 1 al año 5
+
+## Anio 1
+
+```{r message= FALSE, warning=FALSE}
+analisis_anio1 <- base_anio1 %>%
+  select(ID, CIIU, ACC, ACL, RAG, TESORERIA_ANIO_1:RATIO_COBERTURA_INTERES_ANIO_1) %>%
+  rename(ACC_1 = ACC, ACL_1 = ACL, RAG_1 = RAG) %>%
+  arrange(ID)
+head(analisis_anio1)
+```
+
+## Anio 2 respecto al Anio 1
+
+```{r message= FALSE, warning=FALSE}
+analisis_anio2 <- merge(analisis_anio1, base_anio2, by=c("ID","CIIU"))
+
+analisis_anio2 <- analisis_anio2 %>%
+  rename(ACC_2=ACC, ACL_2=ACL, RAG_2=RAG) %>%
+  mutate(ACC_crec = ACC_2 - abs(ACC_1), ACL_crec = ACL_2 - abs(ACL_1), RAG_crec = RAG_2 - abs(RAG_1),
+         TESORERIA_crec = TESORERIA_ANIO_2 - abs(TESORERIA_ANIO_1), 
+         LIQUIDEZ_crec = LIQUIDEZ_ANIO_2 - abs(LIQUIDEZ_ANIO_1), 
+         SOLVENCIA_crec = SOLVENCIA_ANIO_2 - abs(SOLVENCIA_ANIO_1),
+         ENDEUDAMIENTO_crec = ENDEUDAMIENTO_ANIO_2 - abs(ENDEUDAMIENTO_ANIO_1),
+         RENTABILIDAD_crec = RENTABILIDAD_ANIO_2 - abs(RENTABILIDAD_ANIO_1),
+         FONDO_MANIOBRA_crec = FONDO_MANIOBRA_ANIO_2 - abs(FONDO_MANIOBRA_ANIO_1), 
+         RATIO_COBERTURA_INTERES_crec = RATIO_COBERTURA_INTERES_ANIO_2 - abs(RATIO_COBERTURA_INTERES_ANIO_1)) %>%
+  select(ID, CIIU, ACC_crec, ACL_crec, RAG_crec, TESORERIA_crec, LIQUIDEZ_crec, SOLVENCIA_crec, ENDEUDAMIENTO_crec,
+         RENTABILIDAD_crec, FONDO_MANIOBRA_crec, RATIO_COBERTURA_INTERES_crec) %>%
+  arrange(ID)
+
+head(analisis_anio2)
+```
+
+## Anio 3 respesto al anio 2
+
+```{r message= FALSE, warning=FALSE}
+analisis_anio3 <- merge(analisis_anio2, base_anio3, by=c("ID","CIIU"))
+
+analisis_anio3 <- analisis_anio3 %>%
+  rename(ACC_3=ACC, ACL_3=ACL, RAG_3=RAG) %>%
+  mutate(ACC_crec = ACC_3 - abs(ACC_crec), ACL_crec = ACL_3 - abs(ACL_crec), RAG_crec = RAG_3 - abs(RAG_crec),
+         TESORERIA_crec = TESORERIA_ANIO_3 - abs(TESORERIA_crec), 
+         LIQUIDEZ_crec = LIQUIDEZ_ANIO_3 - abs(LIQUIDEZ_crec), 
+         SOLVENCIA_crec = SOLVENCIA_ANIO_3 - abs(SOLVENCIA_crec),
+         ENDEUDAMIENTO_crec = ENDEUDAMIENTO_ANIO_3 - abs(ENDEUDAMIENTO_crec),
+         RENTABILIDAD_crec = RENTABILIDAD_ANIO_3 - abs(RENTABILIDAD_crec),
+         FONDO_MANIOBRA_crec = FONDO_MANIOBRA_ANIO_3 - abs(FONDO_MANIOBRA_crec), 
+         RATIO_COBERTURA_INTERES_crec = RATIO_COBERTURA_INTERES_ANIO_3 - abs(RATIO_COBERTURA_INTERES_crec)) %>%
+  select(ID, CIIU, ACC_crec, ACL_crec, RAG_crec, TESORERIA_crec, LIQUIDEZ_crec, SOLVENCIA_crec, ENDEUDAMIENTO_crec,
+         RENTABILIDAD_crec, FONDO_MANIOBRA_crec, RATIO_COBERTURA_INTERES_crec) %>%
+  arrange(ID)
+
+head(analisis_anio3)
+```
+
+
+## Anio 4 respecto al anio 3
+
+```{r message= FALSE, warning=FALSE}
+analisis_anio4 <- merge(analisis_anio3, base_anio4, by=c("ID","CIIU"))
+
+analisis_anio4 <- analisis_anio4 %>%
+  rename(ACC_4=ACC, ACL_4=ACL, RAG_4=RAG) %>%
+  mutate(ACC_crec = ACC_4 - abs(ACC_crec), ACL_crec = ACL_4 - abs(ACL_crec), RAG_crec = RAG_4 - abs(RAG_crec),
+         TESORERIA_crec = TESORERIA_ANIO_4 - abs(TESORERIA_crec), 
+         LIQUIDEZ_crec = LIQUIDEZ_ANIO_4 - abs(LIQUIDEZ_crec), 
+         SOLVENCIA_crec = SOLVENCIA_ANIO_4 - abs(SOLVENCIA_crec),
+         ENDEUDAMIENTO_crec = ENDEUDAMIENTO_ANIO_4 - abs(ENDEUDAMIENTO_crec),
+         RENTABILIDAD_crec = RENTABILIDAD_ANIO_4 - abs(RENTABILIDAD_crec),
+         FONDO_MANIOBRA_crec = FONDO_MANIOBRA_ANIO_4 - abs(FONDO_MANIOBRA_crec), 
+         RATIO_COBERTURA_INTERES_crec = RATIO_COBERTURA_INTERES_ANIO_4 - abs(RATIO_COBERTURA_INTERES_crec)) %>%
+  select(ID, CIIU, ACC_crec, ACL_crec, RAG_crec, TESORERIA_crec, LIQUIDEZ_crec, SOLVENCIA_crec, ENDEUDAMIENTO_crec,
+         RENTABILIDAD_crec, FONDO_MANIOBRA_crec, RATIO_COBERTURA_INTERES_crec) %>%
+  arrange(ID)
+
+head(analisis_anio4)
+
+```
+
+## Anio 5 respecto al anio 4
+
+Dado que en el balance anio 5 existen 11 652 empresas, y en los balances del anio 1 al 4 existen 11833, para las empresas que no estan presentes en el anio 5, se les asignara valor cero para las variables de interes consideradas: ACC, ACL, RAG, ratios.
+
+```{r message= FALSE, warning=FALSE}
+analisis_anio5 <- merge(analisis_anio4, base_anio5, all = TRUE)
+
+# REEMPLAZAR VALORES NA CON 0
+analisis_anio5 <- mutate_all(analisis_anio5, ~replace(., is.na(.), 0))
+
+analisis_anio5 <- analisis_anio5 %>%
+  rename(ACC_5=ACC, ACL_5=ACL, RAG_5=RAG) %>%
+  mutate(ACC_crec = ACC_5 - abs(ACC_crec), ACL_crec = ACL_5 - abs(ACL_crec), RAG_crec = RAG_5 - abs(RAG_crec),
+         TESORERIA_crec = TESORERIA_ANIO_5 - abs(TESORERIA_crec), 
+         LIQUIDEZ_crec = LIQUIDEZ_ANIO_5 - abs(LIQUIDEZ_crec), 
+         SOLVENCIA_crec = SOLVENCIA_ANIO_5 - abs(SOLVENCIA_crec),
+         ENDEUDAMIENTO_crec = ENDEUDAMIENTO_ANIO_5 - abs(ENDEUDAMIENTO_crec),
+         RENTABILIDAD_crec = RENTABILIDAD_ANIO_5 - abs(RENTABILIDAD_crec),
+         FONDO_MANIOBRA_crec = FONDO_MANIOBRA_ANIO_5 - abs(FONDO_MANIOBRA_crec), 
+         RATIO_COBERTURA_INTERES_crec = RATIO_COBERTURA_INTERES_ANIO_5 - abs(RATIO_COBERTURA_INTERES_crec)) %>%
+  select(ID, CIIU, ACC_crec, ACL_crec, RAG_crec, TESORERIA_crec, LIQUIDEZ_crec, SOLVENCIA_crec, ENDEUDAMIENTO_crec,
+         RENTABILIDAD_crec, FONDO_MANIOBRA_crec, RATIO_COBERTURA_INTERES_crec) %>%
+  arrange(ID)
+
+head(analisis_anio5)
+```
+
+Esta base 'analisis_anio5' se convierte en la base a emplear en la creacion y prueba de los modelos porque almacena la evolucion del año 1 al año 5 de las variables de interes.
+
+
+### ANALISIS DE CORRELACION
+
+Se aplicara un analisis de correlación para identificar relaciones entre las variables y disminuir el numero de variables a solo las necesarias para los modelos. No es bueno emplear muchas variables para crear modelos de clasificacion.
+
+
+```{r message= FALSE, warning=FALSE}
+base_acp <- analisis_anio5 %>%
+  select(ID, ACC_crec, ACL_crec, RAG_crec, TESORERIA_crec, LIQUIDEZ_crec, 
+         SOLVENCIA_crec, ENDEUDAMIENTO_crec, RENTABILIDAD_crec, FONDO_MANIOBRA_crec,
+         RATIO_COBERTURA_INTERES_crec)
+rownames(base_acp) <- base_acp$ID
+base_acp$ID <- NULL
+```
+
+```{r message= FALSE, warning=FALSE}
+# matriz de correlacion entres las variables numericas
+cor1 = round(cor(base_acp),2)
+# grafico de coeficiente de correlacion
+corPlot(cor1, min.length = 10,  las = 2)
+```
+
+Tenemos varias variables numéricas. Veámos si tienen o no varianza cero.
+
+```{r message= FALSE, warning=FALSE}
+numeric_cols = sapply(base_acp, is.numeric)
+variance = nearZeroVar(base_acp[numeric_cols], saveMetrics = T)
+variance
+```
+
+Como vemos, si pasamos el argumento saveMetrics, guarda los valores que ha utilizado para los cálculos. Así pues, uno de los valores que devuelve es nzv (near-zero-variance), que en todos los casos es falso. Así pues, podemos usar todas nuestras variables numéricas en la predicción de nuestro modelo, al menos de momento.
+
+Otras de las cuestiones importantes, es la correlación entre variables. Existen varios modelos como la regresión lineal y la regresión logística que una de las bases del modelo es la no colinealidad o multicolinealidad. Es decir, que en varios modelos no podemos meter variables correlacionadas.
+
+```{r message= FALSE, warning=FALSE}
+base_acp_cor = cor(base_acp[numeric_cols])
+findCorrelation(base_acp_cor,verbose = T, names = T)
+```
+
+Si los valores son cercanos a cero, entonces existe poca correlacion entre las variables. Con un valor cercano a cero, existe una correlación alta o a considerar entre las variables. Como vemos, en este caso hay una variable correlacionada, la columna 5 del ratio de LIQUIDEZ. Se elimina esta variable.
+
+Para detectar los casos en que una variable es transformacion lineal de otras variables y presenta correlacion, se usa lo siguiente.
+
+```{r message= FALSE, warning=FALSE}
+findLinearCombos(base_acp)
+```
+No existe combinaciones lineales de las variables que representen a otra variable por lo que solo se elimina la variable Liquidez_crec.
+
+```{r message= FALSE, warning=FALSE}
+colnames(analisis_anio5)
+```
+
+```{r message= FALSE, warning=FALSE}
+# se eliminan las columnas LIQUIDEZ_crec
+base_crecimiento <- analisis_anio5 %>%
+  select(-7)
+head(base_crecimiento)
+```
+
+
+##  Variables de interes de informacion de las empresas
+
+Se analizan algunas variables de informacion sobre las empresas para conocer que variables aportarian informacion para los modelos de clasificacion a crear.
+
+
+### EDAD
+
+Se calcula la edad de las empresas en funcion de la variable Constitucion.
+```{r message= FALSE, warning=FALSE}
+empresas <- empresas %>% 
+  mutate(EDAD = trunc(interval(start = CONSTITUCION, end = now()) / years()))
+empresas$EDAD = replace(empresas$EDAD, is.na(empresas$ANIO_CONS), 0)
+```
+
+
+### VARIABLES DICOTOMICAS EXPORT, IMPORT, MODIFICACIONESREG
+
+Se convierten las variables 'EXPORT', 'IMPORT' y 'MODIFICACIONESREG' en variables numéricas dicotómicas porque son variables que aportan información de las empresas.
+
+* MODIFICACIONESREG: cuando la empresa ha realizado modificaciones en sus estatutos (modificaciones de capital, nombramientos, ceses, modificaciones de objeto social, etc). SI= ha realizado, Otros valores = No ha realizado.
+
+* IMPORT: cuando la empresa ha importado, SI= ha importado, Otros valores = No ha importado.
+
+* EXPORT: cuando la empresa ha exportado, SI= ha exportado, Otros valores = No ha exportado.
+
+
+```{r message= FALSE, warning=FALSE}
+empresas$EXPORT = ifelse(empresas$EXPORT == "SI",1,0)
+empresas$IMPORT = ifelse(empresas$IMPORT == "SI",1,0)
+empresas$MODIFICACIONESREG = ifelse(empresas$MODIFICACIONESREG == "SI",1,0)
+empresas$EXPORT = replace(empresas$EXPORT, is.na(empresas$EXPORT), 0)
+empresas$IMPORT = replace(empresas$IMPORT, is.na(empresas$IMPORT), 0)
+empresas$MODIFICACIONESREG = replace(empresas$MODIFICACIONESREG, 
+                                     is.na(empresas$MODIFICACIONESREG), 0)
+```
+
+
+Se analiza mediante analisis de Chi-Cuadrado si las variables SECTOR y DEPARTAMENTO que indican donde se ubica la empresa, influyen en la clasificacion de las empresas EAC.
+
+Criterios de Chi-CUadrado
+
+* Valor p ≤ \alpha: Las variables tienen una asociación estadísticamente significativa (Rechazar H0) Si el valor p es menor que o igual al nivel de significancia, usted rechaza la hipótesis nula y concluye que hay una asociación estadísticamente significativa entre las variables.
+
+* Valor p > \alpha: No se puede concluir que las variables están asociadas (No se puede rechazar H0) Si el valor p es mayor que el nivel de significancia, usted no puede rechazar la hipótesis nula, porque no hay suficiente evidencia para concluir que las variables están asociadas.
+
+```{r message= FALSE, warning=FALSE}
+data = read.csv("empresas_clasificacion_eac.csv", stringsAsFactors = T,encoding = 'utf8', header = TRUE)
+basechi_sector = data %>% select(SECTOR,clase2)
+basechi_sector = table(basechi_sector)
+chi_sector = chisq.test(basechi_sector)
+chi_sector
+```
+
+
+Para la variable SECTOR, la prueba de Chi cuadrado da un valor p = 0.1521 > 0.05, mayor al de la significancia, por tanto, no se rechaza la hipotesis nula (variables independientes) de que las variables CLASE y SECTOR son independientes.
+
+```{r message= FALSE, warning=FALSE}
+basechi_depart = data %>% select(DEPARTAMENTO,clase2)
+basechi_depart = table(basechi_depart)
+chi_depart = chisq.test(basechi_depart)
+chi_depart
+```
+
+Dado que el valor p es menor a 0.05, rechazamos la hipótesis nula (variables independientes). Esto significa que las variables CLASE EAC y DEPARTAMENTO de la empresa se correlacionan entre si y se usará la variable DEPARTAMENTO para la creación de los modelos.
+
+
+Primero, se analiza cuantos departamentos de Colombia están dentro del estudio.
+
+```{r message= FALSE, warning=FALSE}
+departamentos <- unique(data$DEPARTAMENTO)
+departamentos <- sort(departamentos)
+departamentos
+```
+
+Se procede a convertir a factor la variable DEPARTAMENTO y visualizar en cuáles departamentos existen empresas EAC.
+
+```{r message= FALSE, warning=FALSE}
+data$DEPARTAMENTO <- as.factor(data$DEPARTAMENTO)
+data$clase2 <- as.factor(data$clase2)
+
+data.ca <- table(data$DEPARTAMENTO,data$clase2)
+
+dimnames(data.ca)<- list(departamentos=departamentos,
+                         clase=c("NO EAC","EAC"))
+data.ca
+```
+
+La mayoria de las empresas clasificadas EAC se encuestran en los departamentos de  Bogota D.C. (19), Antioquia(13), Atlantico (5), Valle (4), Cundinamarca (3), Santander (2), Boyaca (1), Caldas (1), Cesar (1), Cordoba (1), Risaralda (1), Vichada (1). 
+
+Se clasificará
+
+* Bogota D.C = 1
+* Antioquia = 2 
+* Atlantico = 3
+* Valle = 4
+* Cundinamarca = 5
+* Santander, Boyaca, Caldas, Cesar, Cordoba, Risaralda, Vichada = 6
+* Resto = 0
+
+
+```{r message= FALSE, warning=FALSE}
+otros1 <- c("SANTANDER","BOYACA","CALDAS","CESAR","CORDOBA","RISARALDA","VICHADA")
+otros2 <- c("BOLIVAR", "NORTE DE SANTANDER","MAGDALENA","TOLIMA","QUINDIO","CAUCA","PUTUMAYO","META",
+            "SAN ANDRES Y PROVIDENCIA","HUILA","CASANARE","SUCRE","CHOCO","NARINO","CAQUETA","ARAUCA","AMAZONAS","LA GUAJIRA")
+
+empresas$DEPARTAMENTO[empresas$DEPARTAMENTO=="BOGOTA D.C."] <- 1
+empresas$DEPARTAMENTO[empresas$DEPARTAMENTO=="ANTIOQUIA"] <- 2
+empresas$DEPARTAMENTO[empresas$DEPARTAMENTO=="ATLANTICO"] <- 3
+empresas$DEPARTAMENTO[empresas$DEPARTAMENTO=="VALLE"] <- 4
+empresas$DEPARTAMENTO[empresas$DEPARTAMENTO=="CUNDINAMARCA"] <- 5
+empresas$DEPARTAMENTO[empresas$DEPARTAMENTO %in% otros1] <- 6
+empresas$DEPARTAMENTO[empresas$DEPARTAMENTO %in% otros2] <- 0
+```
+
+
+
+## Creación de la base para el modelo
+
+Se unen las variables ratios, EDAD, DEPARTAMENTO y además de la variables dicotómicas (MODIFICACIONESREG, IMPORT, EXPORT) a la base final de crecimiento del anio 1 al anio 5.
+
+```{r message= FALSE, warning=FALSE}
+#analisis_anio5 contiene las variables de interes numericas de los balances y los radios creados
+#empresas tiene la informacion de interes de las empresas
+#actividad_clas para la clasificacion eac de las empresas, variable clase2
+
+clase <- actividad_clas %>% select(ID, CIIU, clase2)
+
+base_modelos1 <- merge(base_crecimiento, empresas, by=c("ID","CIIU"))
+base_modelos1 <- merge(base_modelos1, clase, by=c("ID","CIIU"))
+base_modelos1 <- base_modelos1 %>%
+  select(ID:RATIO_COBERTURA_INTERES_crec, EDAD, DEPARTAMENTO, MODIFICACIONESREG, IMPORT, EXPORT, clase2) %>%
+  rename(TARGET=clase2)
+
+# REEMPLAZAR VALORES NA CON 0
+base_modelos1 <- mutate_all(base_modelos1, ~replace(., is.na(.), 0))
+
+# convertir a factor la variable TARGET
+base_modelos1$TARGET <- as.factor(base_modelos1$TARGET)
+# convertir a double la variable DEPARTAMENTO
+base_modelos1$DEPARTAMENTO <- as.numeric(base_modelos1$DEPARTAMENTO)
+
+
+base_modelos <- base_modelos1 %>%
+  select(ACC_crec:RATIO_COBERTURA_INTERES_crec, EDAD, DEPARTAMENTO, MODIFICACIONESREG, IMPORT, EXPORT, TARGET)
+head(base_modelos)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+# se guarda la base para los modelos
+
+# base con identificado ID, CIIU,
+write.csv(base_modelos1, "base_modelos_identificador.csv")
+
+# base con variables numericas
+write.csv(base_modelos, "base_modelos.csv")
+```
+
+```{r message= FALSE, warning=FALSE}
+dim(base_modelos)
+dim(base_modelos1)
+```
+
+# CLUSTERING
+
+Antes de proceder a identificar a las EAC bajo el criterio de porcentaje de crecimiento en ventas, se trata de buscar patrones, relaciones, tendencias y/o características, de manera que el modelo trabaje por su cuenta para descubrir información que puede que no sea visible para el ojo humano. Se emplea un modelo de clustering con el objetivo de localizar patrones ocultos o agrupaciones de datos. 
+
+Para el estudio, solo se aplican las variables cuantitativas obtenidas de los balances del año 1 al año 5. Para este proceso, la agrupación de datos se da por similitud aplicando el algoritmo clustering jerárquico. Este método funciona de manera iterativa asignando cada punto de datos a uno de los k grupos según las características proporcionadas.
+
+## CLUSTERING con aumento de variables de ventas y su evolución
+
+Se realiza el clustering aumentando la evolucion de las variables de ventas RAIE y RAIX.
+
+```{r message= FALSE, warning=FALSE}
+var_anio1 <- base_anio1 %>%
+  select(ID, CIIU, RAIE, RAIX) %>%
+  rename(RAIE_1 = RAIE, RAIX_1 = RAIX) %>%
+  arrange(ID)
+
+var_anio2 <- merge(var_anio1, base_anio2, by=c("ID","CIIU"))
+var_anio2 <- var_anio2 %>%
+  rename(RAIE_2=RAIE, RAIX_2=RAIX) %>%
+  mutate(RAIE_crec = RAIE_2 - abs(RAIE_1), RAIX_crec = RAIX_2 - abs(RAIX_1)) %>%
+  select(ID, CIIU, RAIE_crec, RAIX_crec) %>%
+  arrange(ID)
+
+var_anio3 <- merge(var_anio2, base_anio3, by=c("ID","CIIU"))
+var_anio3 <- var_anio3 %>%
+  rename(RAIE_3=RAIE, RAIX_3=RAIX) %>%
+  mutate(RAIE_crec = RAIE_3 - abs(RAIE_crec), RAIX_crec = RAIX_3 - abs(RAIX_crec)) %>%
+  select(ID, CIIU, RAIE_crec, RAIX_crec) %>%
+  arrange(ID)
+
+var_anio4 <- merge(var_anio3, base_anio4, by=c("ID","CIIU"))
+var_anio4 <- var_anio4 %>%
+  rename(RAIE_4=RAIE, RAIX_4=RAIX) %>%
+  mutate(RAIE_crec = RAIE_4 - abs(RAIE_crec), RAIX_crec = RAIX_4 - abs(RAIX_crec)) %>%
+  select(ID, CIIU, RAIE_crec, RAIX_crec) %>%
+  arrange(ID)
+
+var_anio5 <- merge(var_anio4, base_anio5, by=c("ID","CIIU"))
+var_anio5 <- var_anio5 %>%
+  rename(RAIE_5=RAIE, RAIX_5=RAIX) %>%
+  mutate(RAIE_crec = RAIE_5 - abs(RAIE_crec), RAIX_crec = RAIX_5 - abs(RAIX_crec)) %>%
+  select(ID, CIIU, RAIE_crec, RAIX_crec) %>%
+  arrange(ID)
+
+head(var_anio5)
+```
+
+```{r message= FALSE, warning=FALSE}
+## clustering con las variables de interes
+base_modelos_clust2 <- merge(base_modelos1, var_anio5, by=c("ID","CIIU"))
+base_modelos_clust2 <- base_modelos_clust2 %>% select(-c("ID","CIIU","TARGET"))
+head(base_modelos_clust2)
+
+# se estandariza la base
+base_modelos_clust2 <- base_modelos_clust2 %>% mutate_all(~(scale(.) %>% as.vector))
+```
+
+Para estimar el valor óptimo de los k clusters se puede aplicar métodos que determinen este valor. Los más usados son:
+- Método del codo: Este método mide la compacidad del agrupamiento y se busca que sea lo más pequeño posible.
+
+```{r message= FALSE, warning=FALSE}
+fviz_nbclust(base_modelos_clust2, FUN = hcut, method = "wss", main = "Método del codo")
+```
+
+Los resultados sugieren que 2 es el número óptimo de grupos donde existe la flexión de la rodilla (o el codo).
+
+- Método de silueta promedio: el enfoque de silueta promedio mide la calidad de un agrupamiento. Es decir, determina qué tan bien se encuentra cada objeto dentro de su grupo. Un ancho de silueta promedio alto indica una buena agrupación. El método de la silueta promedio calcula la silueta promedio de las observaciones para diferentes valores de k . El número óptimo de conglomerados k es el que maximiza la silueta promedio sobre un rango de valores posibles para k .
+
+```{r message= FALSE, warning=FALSE}
+fviz_nbclust(base_modelos_clust2, FUN = hcut, method = "silhouette", main = "Método de silueta promedio")
+```
+
+Los resultados muestran que 2 grupos maximizan los valores de silueta promedio con 3 grupos como segundo número óptimo de grupos.
+
+Después de probar estos métodos, la mayoría de estos enfoques sugieren 2 como el número de conglomerados óptimos. Y se recuerda que la TARGET clasifica a las empresas en dos grupos, EAC y no EAC.
+
+Luego, se determina la matriz de distancia. Se emplea la distancia euclideana que es la más común entre dos puntos y no existe problema al estar las variables bajo una misma escala.
+
+```{r message= FALSE, warning=FALSE}
+# Calculando la matriz de distancia euclidiana
+dist.eucl <- dist(base_modelos_clust2, method = "euclidean")
+```
+
+Una vez estimada la distancia, se debe identificar la forma de medir las diferencias entre los grupos de conglomerados. Para identificar el mejor método para aplicar el cluster jerárquico, se evaluará los gráficos obtenidos con los diferentes métodos de aglomeración o criterios: single, complete, average y ward. Dependiendo del criterio escogido, las agrupaciones obtenidas pueden mostrar diferencias significativas.
+
+```{r message= FALSE, warning=FALSE}
+m <- c( "average", "single", "complete", "ward")
+names(m) <- c( "average", "single", "complete", "ward")
+
+# funcion para comparar los metodos
+ac <- function(x) {
+  agnes(base_modelos_clust2, method = x)$ac
+}
+```
+
+```{r message= FALSE, warning=FALSE}
+#map_dbl(m[1], ac)
+```
+
+- Criterio single linkage o distancia mínima:
+
+```{r message= FALSE, warning=FALSE}
+# Cluster jerarquico con el método single
+hc_dist <- hclust(dist.eucl, method = 'single')
+# Determinamos a dónde pertenece cada observación
+cluster_assigments <- cutree(hc_dist, k = 2)
+# asignamos los clusters
+assigned_cluster <- base_modelos_clust2 %>% mutate(cluster = as.factor(cluster_assigments))
+# grafico
+fviz_cluster(list(data = base_modelos_clust2, cluster = cluster_assigments))
+```
+
+
+- Criterio complete linkage o distancia máxima:
+
+```{r message= FALSE, warning=FALSE}
+# Cluster jerarquico con el método complete
+hc_dist <- hclust(dist.eucl, method = 'complete')
+# Determinamos a dónde pertenece cada observación
+cluster_assigments <- cutree(hc_dist, k = 2)
+# asignamos los clusters
+assigned_cluster <- base_modelos_clust2 %>% mutate(cluster = as.factor(cluster_assigments))
+# grafico
+fviz_cluster(list(data = base_modelos_clust2, cluster = cluster_assigments))
+```
+
+- Criterio average linkage o distancia promedio:
+
+```{r message= FALSE, warning=FALSE}
+# Cluster jerarquico con el método average
+hc_dist <- hclust(dist.eucl, method = 'average')
+# Determinamos a dónde pertenece cada observación
+cluster_assigments <- cutree(hc_dist, k = 2)
+# asignamos los clusters
+assigned_cluster <- base_modelos_clust2 %>% mutate(cluster = as.factor(cluster_assigments))
+# grafico
+fviz_cluster(list(data = base_modelos_clust2, cluster = cluster_assigments))
+```
+
+- Método Ward o mínima varianza:
+
+```{r message= FALSE, warning=FALSE}
+# Cluster jerarquico con el método Ward
+hc_dist <- hclust(dist.eucl, method = 'ward.D')
+# Determinamos a dónde pertenece cada observación
+cluster_assigments <- cutree(hc_dist, k = 2)
+# asignamos los clusters
+assigned_cluster <- base_modelos_clust2 %>% mutate(cluster = as.factor(cluster_assigments))
+# grafico
+fviz_cluster(list(data = base_modelos_clust2, cluster = cluster_assigments))
+```
+
+
+Con estos gráficos se observa como se puede obtener los clusteres queque identifiquen a las empresas EAC y no EAC.
+
+
+# MODELOS
+
+Para poder evaluar la capacidad predictiva del modelo, se dividen las observaciones disponibles en dos grupos: uno de entrenamiento para ajustar el modelo (70% de los datos) y uno de test (30% de los datos).
+
+## SELECCION DE LAS BASES TRAIN Y TEST
+
+```{r message= FALSE, warning=FALSE}
+library(caret)
+set.seed(1133)
+
+# creamos un vector de particion sobre la variable class
+# el tamaño de muestra será de 70%
+trainIndex=createDataPartition(base_modelos$TARGET, p=0.70)$Resample1
+base_train = base_modelos[trainIndex, ]
+base_test = base_modelos[-trainIndex, ]
+```
+
+```{r message= FALSE, warning=FALSE}
+dim(base_train)
+dim(base_test)
+```
+ 
+Se revisa la proporción de empresas EAC y no EAC en ambos conjuntos de datos.
+
+```{r message= FALSE, warning=FALSE}
+table(base_train$TARGET)
+```
+
+```{r message= FALSE, warning=FALSE}
+table(base_test$TARGET)
+```
+
+Para lidiar con el desbalance que existe entre los grupos EAC y NO EAC, se aplicará técnicas de desbalanceo undersampling y oversampling.
+
+Las técnicas de desbalance se basan en modificar la distribución inicial de los datos para balancear las clases. Algunas de las más importantes:
+
+* Oversampling: Consiste en modificar la distribución de los datos incrementando el número de casos de la clase minoritaria.
+
+* Undersampling: Consiste en modificar la distribución de los datos reduciendo el número de casos de la clase mayoritaria.
+
+La librería ROSE permite aplicar tres métodos para balancear los datos:
+
+* Oversampling: añade observaciones de la clase minoritaria de forma aleatoria.
+* Both: iguala las distribuciones añadiendo de forma aleatoria observaciones de la clase minoritaria, y eliminando de forma aleatoria observaciones de la mayoritaria.
+* Better estimates: la función ROSE de la librería genera datos sintéticos para balancear las clases. Idealmente, los datos generados con esa función representan la mejor estimación de los datos originales.
+
+
+## Undersampling
+
+```{r message= FALSE, warning=FALSE}
+library(ROSE)
+
+base_balanceada_under <- ovun.sample(TARGET ~ .,
+                         data = base_train,
+                         p=0.5, seed=1,
+                         method = "under")$data
+
+table(base_balanceada_under$default)
+
+# Se emparejan los grupos segun la variable TARGET.
+dim(base_balanceada_under)
+table(base_balanceada_under$TARGET)
+```
+
+## Oversampling
+
+```{r message= FALSE, warning=FALSE}
+library(ROSE)
+
+base_balanceada_over <- ovun.sample(TARGET ~ .,
+                         data = base_train,
+                         p=0.5, seed=1,
+                         method = "over")$data
+
+table(base_balanceada_over$default)
+
+# Se emparejan los grupos segun la variable TARGET.
+dim(base_balanceada_over)
+table(base_balanceada_over$TARGET)
+```
+
+## Under y over sampling
+
+```{r message= FALSE, warning=FALSE}
+library(ROSE)
+
+base_balanceada_both <- ovun.sample(TARGET ~ .,
+                         data = base_train,
+                         N=nrow(base_train), p=0.5,
+                         seed=1, method="both")$data
+
+table(base_balanceada_both$default)
+
+# Se emparejan los grupos segun la variable TARGET.
+dim(base_balanceada_both)
+table(base_balanceada_both$TARGET)
+```
+
+
+## COMPARACION DE TECNICAS
+
+Realizar el modelo predictivo con la información tal cual se encuentra, sin balancear los datos solo con los datos de la base train. Se compara con los resultados aplicando al mismo modelo la base con tecnica de undersampling y otra base train con tecnica de oversampling.
+
+Tras generar tres data sets de entrenamiento distintos, balanceados con cada método, hice algunas comprobaciones para asegurarme de que los datos originales no se habían alterado significativamente. Aquí muestro uno de los resultados de la comparación:
+
+
+```{r message= FALSE, warning=FALSE}
+table = rbind(table(base_train$TARGET),
+              table(base_balanceada_under$TARGET),
+              table(base_balanceada_over$TARGET),
+              table(base_balanceada_both$TARGET))
+rownames(table) <- c("Train normal","Undersampling","Oversampling","Under y over sampling")
+table
+```
+
+### base train original
+
+```{r message= FALSE, warning=FALSE}
+train_original <- base_train %>%
+  group_by(TARGET) %>%
+  summarise(media_edad = mean(EDAD), minimo_edad = min(EDAD), maximo_edad = max(EDAD))
+train_original
+```
+
+### base train balanceado con undersampling
+
+```{r message= FALSE, warning=FALSE}
+train_under <- base_balanceada_under %>%
+  group_by(TARGET) %>%
+  summarise(media_edad = mean(EDAD), minimo_edad = min(EDAD), maximo_edad = max(EDAD))
+train_under
+```
+
+### base train balanceado con oversampling
+
+```{r message= FALSE, warning=FALSE}
+train_over <- base_balanceada_over %>%
+  group_by(TARGET) %>%
+  summarise(media_edad = mean(EDAD), minimo_edad = min(EDAD), maximo_edad = max(EDAD))
+train_over
+```
+
+
+### base train balanceado con over y undersampling
+
+```{r message= FALSE, warning=FALSE}
+train_both <- base_balanceada_both %>%
+  group_by(TARGET) %>%
+  summarise(media_edad = mean(EDAD), minimo_edad = min(EDAD), maximo_edad = max(EDAD))
+train_both
+```
+
+Se puede opbervar que los datos de resumen para el caso de Edad, son prácticamente los mismos en los datos de entrenamiento: original, balanceado con undersampling, balanceado con oversampling, balanceado con under y oversampling. Por tanto, la relación entre la variables predictoras como EDAD y variable respuesta TARGET de las clases EAC y no EAC no se altera significativamente.
+
+Se procede a construir los modelos de clasificación usando k-fold Cross Validation.
+
+
+# IMPLEMENTACIÓN DEL CROSS VALIDATION PARA LOS MODELOS
+
+Para aplicar la validación cruzada, se usa la función createFolds del paquete caret y se entrena a cada modelo sobre k=10 subconjuntos.
+
+```{r message= FALSE, warning=FALSE}
+library(caret)
+
+folds <- createFolds(base_train$TARGET, k=10)
+```
+
+
+# MODELOS
+
+Es momento de entrenar los modelos y encontrar si existen medidas de evaluación aceptables. Se procede a entrenar varios modelos, cada uno sobre las tres bases de entrenamiento balanceados (under, over y ambos) y la base de entrenamiento original.
+
+## MODELO ARBOL DE DECISION
+
+Los árboles de decisión o clasificación tampoco es un modelos estadístico basado en la estimación de los parámetros de la ecuación propuesta, por tanto, no tenemos que estimar un modelo estadístico formal, son algoritmos para clasificar utilizando particiones sucesivas. Son apropiados cuando hay un número elevado de datos, siendo una de sus ventajas su carácter descriptivo que permite entender e interpretar fácilmente las decisiones tomadas por el modelo, revelando formas complejas en la estructura de datos que no se pueden detectar con los métodos convencionales de regresión.
+
+Los árboles de decisión o de clasificación son un modelo surgido en el ámbito del aprendizaje automático (Machine Learning) y de la Inteligencia Artificial que partiendo de una base de datos, crea diagramas de construcciones lógicas que nos ayudan a resolver problemas. A esta técnica también se la denomina segmentación jerárquica. Es una técnica explicativa y descomposicional que utiliza un proceso de división secuencial, iterativo y descendente que partiendo de una variable dependiente, forma grupos homogéneos definidos específicamente mediante combinaciones de variables independientes en las que se incluyen la totalidad de los casos recogidos en la muestra.
+
+Usaremos los siguientes paquetes.
+
+* tidyverse: para llamar a la familia de paquetes tidyverse, que nos ayudaran al procesamiento de nuestros datos.
+* rpart: el paquete con la implementación de árboles de clasificación que utilizaremos.
+* rpart.plot: para graficar los resultados de rpart.
+* caret: un paquete con utilidades para clasificación y regresión. Lo usaremos por su función para crear matrices de confusión
+
+
+### Entrenamiento del modelo con Cross Validation
+
+```{r message= FALSE, warning=FALSE}
+# modelo con base_train
+cv_modeloArbol_dataOriginal <- lapply(folds, function(x){
+  train_fold <- base_train[-x, ]
+  test_fold <- base_train[x, ]
+  modeloArbol_dataOriginal <- rpart(TARGET~., data = train_fold, method = "class")
+  y_pred_dataOriginal <- predict(modeloArbol_dataOriginal, newdata=test_fold, type = "class")
+  cm <- table(test_fold$TARGET, y_pred_dataOriginal)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloArbol_dataOriginal <- mean(as.numeric(cv_modeloArbol_dataOriginal))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada: %f", precision_modeloArbol_dataOriginal)
+```
+
+```{r message= FALSE, warning=FALSE}
+# modelo con base_balanceada_under
+cv_modeloArbol_dataUnder <- lapply(folds, function(x){
+  train_fold <- base_balanceada_under[-x, ]
+  test_fold <- base_balanceada_under[x, ]
+  modeloArbol_dataUnder <- rpart(TARGET~., data = train_fold, method = "class")
+  y_pred_dataUnder <- predict(modeloArbol_dataUnder, newdata=test_fold, type = "class")
+  cm <- table(test_fold$TARGET, y_pred_dataUnder)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloArbol_dataUnder <- mean(as.numeric(cv_modeloArbol_dataUnder))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada UNDERSAMPLING: %f", precision_modeloArbol_dataUnder)
+```
+
+```{r message= FALSE, warning=FALSE}
+# modelo con base_balanceada_over
+cv_modeloArbol_dataOver <- lapply(folds, function(x){
+  train_fold <- base_balanceada_over[-x, ]
+  test_fold <- base_balanceada_over[x, ]
+  modeloArbol_dataOver <- rpart(TARGET~., data = train_fold, method = "class")
+  y_pred_dataOver <- predict(modeloArbol_dataOver, newdata=test_fold, type = "class")
+  cm <- table(test_fold$TARGET, y_pred_dataOver)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloArbol_dataOver <- mean(as.numeric(cv_modeloArbol_dataOver))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada OVERSAMPLING: %f", precision_modeloArbol_dataOver)
+```
+
+```{r message= FALSE, warning=FALSE}
+# modelo con base_balanceada_both
+cv_modeloArbol_dataBoth <- lapply(folds, function(x){
+  train_fold <- base_balanceada_both[-x, ]
+  test_fold <- base_balanceada_both[x, ]
+  modeloArbol_dataBoth <- rpart(TARGET~., data = train_fold, method = "class")
+  y_pred_dataBoth <- predict(modeloArbol_dataBoth, newdata=test_fold, type = "class")
+  cm <- table(test_fold$TARGET, y_pred_dataBoth)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloArbol_dataBoth <- mean(as.numeric(cv_modeloArbol_dataBoth))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada UNDER Y OVERSAMPLING: %f", precision_modeloArbol_dataBoth)
+```
+
+
+Se evalua los modelos sobre el conjunto de test que toma el 30% de los valores de la base final.
+
+```{r message= FALSE, warning=FALSE}
+# precision con la evaluacion sobre test
+modeloArbol_dataOriginal <- rpart(TARGET~., data = base_train, method = "class")
+prediccion_test <- predict(modeloArbol_dataOriginal, newdata = base_test, type="class")
+cm1 <- table(base_test$TARGET, prediccion_test)
+precision1 <- (cm1[1,1] + cm1[2,2]) / (cm1[1,1] + cm1[2,2] + cm1[1,2] + cm1[2,1])
+sprintf("Precision sobre el base_test del modelo original: %f ",as.numeric(precision1))
+
+modeloArbol_dataUnder <- rpart(TARGET~., data = base_balanceada_under, method = "class")
+prediccion_test_under <- predict(modeloArbol_dataUnder, newdata = base_test, type="class")
+cm2 <- table(base_test$TARGET, prediccion_test_under)
+precision2 <- (cm2[1,1] + cm2[2,2]) / (cm2[1,1] + cm2[2,2] + cm2[1,2] + cm2[2,1])
+sprintf("Precision sobre el base_test del modelo undersampling: %f ",as.numeric(precision2))
+
+modeloArbol_dataOver <- rpart(TARGET~., data = base_balanceada_over, method = "class")
+prediccion_test_over <- predict(modeloArbol_dataOver, newdata = base_test, type="class")
+cm3 <- table(base_test$TARGET, prediccion_test_over)
+precision3 <- (cm3[1,1] + cm3[2,2]) / (cm3[1,1] + cm3[2,2] + cm3[1,2] + cm3[2,1])
+sprintf("Precision sobre el base_test del modelo oversampling: %f ",as.numeric(precision3))
+
+modeloArbol_dataBoth<- rpart(TARGET~., data = base_balanceada_both, method = "class")
+prediccion_test_both <- predict(modeloArbol_dataBoth, newdata = base_test, type="class")
+cm4 <- table(base_test$TARGET, prediccion_test_both)
+precision4 <- (cm4[1,1] + cm4[2,2]) / (cm4[1,1] + cm4[2,2] + cm4[1,2] + cm4[2,1])
+sprintf("Precision sobre el base_test del modelo under y oversampling: %f ",as.numeric(precision4))
+```
+
+Curvas ROC
+
+
+```{r message= FALSE, warning=FALSE}
+roc.curve(base_test$TARGET, prediccion_test, xlab="1-ESpecificidad",ylab="Sensibilidad")
+roc.curve(base_test$TARGET, prediccion_test_under, add.roc=TRUE, col=2)
+roc.curve(base_test$TARGET, prediccion_test_over, add.roc=TRUE, col=3)
+roc.curve(base_test$TARGET, prediccion_test_both, add.roc=TRUE, col=4)
+legend("bottomright",col=1:4, lwd = 3,
+       legend = c("base desbalanceada","base undersampling",
+                  "base oversampling","base under y oversampling"))
+```
+
+
+La base obtenida por metodo undersampling muestra el valor de ROC más proximo a 1. El tamaño de la muestra es baja por lo que el modelo predice mejor los casos.
+
+
+## MODELO RANDOM FOREST
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(4) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_train
+cv_modeloRF_dataOriginal <- lapply(folds, function(x){
+  train_fold <- base_train[-x, ]
+  test_fold <- base_train[x, ]
+  modeloRF_dataOriginal = randomForest(train_fold$TARGET~., data = train_fold, mtry = ncol(train_fold) - 1)
+  y_pred_dataOriginal <- predict(modeloRF_dataOriginal, newdata=test_fold, type = "class")
+  cm <- table(test_fold$TARGET, y_pred_dataOriginal)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloRF_dataOriginal <- mean(as.numeric(cv_modeloRF_dataOriginal))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada: %f", precision_modeloRF_dataOriginal)
+```
+
+```{r message= FALSE, warning=FALSE}
+set.seed(4) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_balanceada_under
+cv_modeloRF_dataUnder <- lapply(folds, function(x){
+  train_fold <- base_balanceada_under[-x, ]
+  test_fold <- base_balanceada_under[x, ]
+  modeloRF_dataUnder = randomForest(train_fold$TARGET~., data = train_fold, mtry = ncol(train_fold) - 1)
+  y_pred_dataUnder <- predict(modeloRF_dataUnder, newdata=test_fold, type = "class")
+  cm <- table(test_fold$TARGET, y_pred_dataUnder)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloRF_dataUnder <- mean(as.numeric(cv_modeloRF_dataUnder))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada UNDERSAMPLING: %f", precision_modeloRF_dataUnder)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(4) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_balanceada_over
+cv_modeloRF_dataOver <- lapply(folds, function(x){
+  train_fold <- base_balanceada_over[-x, ]
+  test_fold <- base_balanceada_over[x, ]
+  modeloRF_dataOver = randomForest(train_fold$TARGET~., data = train_fold, mtry = ncol(train_fold) - 1)
+  y_pred_dataOver <- predict(modeloRF_dataOver, newdata=test_fold, type = "class")
+  cm <- table(test_fold$TARGET, y_pred_dataOver)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloRF_dataOver <- mean(as.numeric(cv_modeloRF_dataOver))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada OVERSAMPLING: %f", precision_modeloRF_dataOver)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(4) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_balanceada_both
+cv_modeloRF_dataBoth <- lapply(folds, function(x){
+  train_fold <- base_balanceada_both[-x, ]
+  test_fold <- base_balanceada_both[x, ]
+  modeloRF_dataBoth = randomForest(train_fold$TARGET~., data = train_fold, mtry = ncol(train_fold) - 1)
+  y_pred_dataBoth <- predict(modeloRF_dataBoth, newdata=test_fold, type = "class")
+  cm <- table(test_fold$TARGET, y_pred_dataBoth)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloRF_dataBoth <- mean(as.numeric(cv_modeloRF_dataBoth))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada UNDER Y OVERSAMPLING: %f", precision_modeloRF_dataBoth)
+```
+
+
+Se evalua los modelos sobre el conjunto de test que toma el 30% de los valores de la base final.
+
+```{r message= FALSE, warning=FALSE}
+set.seed(4)
+# precision con la evaluacion sobre test
+modeloRF_dataOriginal = randomForest(base_train$TARGET~., data = base_train, mtry = ncol(base_train) - 1)
+prediccion_test <- predict(modeloRF_dataOriginal, newdata = base_test, type="class")
+cm1 <- table(base_test$TARGET, prediccion_test)
+precision1 <- (cm1[1,1] + cm1[2,2]) / (cm1[1,1] + cm1[2,2] + cm1[1,2] + cm1[2,1])
+sprintf("Precision sobre el base_test del modelo original: %f ",as.numeric(precision1))
+
+modeloRF_dataUnder = randomForest(base_balanceada_under$TARGET~., data = base_balanceada_under, mtry = ncol(base_balanceada_under) - 1)
+prediccion_test_under <- predict(modeloRF_dataUnder, newdata = base_test, type="class")
+cm2 <- table(base_test$TARGET, prediccion_test_under)
+precision2 <- (cm2[1,1] + cm2[2,2]) / (cm2[1,1] + cm2[2,2] + cm2[1,2] + cm2[2,1])
+sprintf("Precision sobre el base_test del modelo undersampling: %f ",as.numeric(precision2))
+
+modeloRF_dataOver = randomForest(base_balanceada_over$TARGET~., data = base_balanceada_over, mtry = ncol(base_balanceada_over) - 1)
+prediccion_test_over <- predict(modeloRF_dataOver, newdata = base_test, type="class")
+cm3 <- table(base_test$TARGET, prediccion_test_over)
+precision3 <- (cm3[1,1] + cm3[2,2]) / (cm3[1,1] + cm3[2,2] + cm3[1,2] + cm3[2,1])
+sprintf("Precision sobre el base_test del modelo oversampling: %f ",as.numeric(precision3))
+
+modeloRF_dataBoth = randomForest(base_balanceada_both$TARGET~., data = base_balanceada_both, mtry = ncol(base_balanceada_both) - 1)
+prediccion_test_both <- predict(modeloRF_dataBoth, newdata = base_test, type="class")
+cm4 <- table(base_test$TARGET, prediccion_test_both)
+precision4 <- (cm4[1,1] + cm4[2,2]) / (cm4[1,1] + cm4[2,2] + cm4[1,2] + cm4[2,1])
+sprintf("Precision sobre el base_test del modelo under y oversampling: %f ",as.numeric(precision4))
+```
+
+Curvas ROC
+
+
+```{r message= FALSE, warning=FALSE}
+roc.curve(base_test$TARGET, prediccion_test, xlab="1-ESpecificidad",ylab="Sensibilidad")
+roc.curve(base_test$TARGET, prediccion_test_under, add.roc=TRUE, col=2)
+roc.curve(base_test$TARGET, prediccion_test_over, add.roc=TRUE, col=3)
+roc.curve(base_test$TARGET, prediccion_test_both, add.roc=TRUE, col=4)
+legend("bottomright",col=1:4, lwd = 3,
+       legend = c("base desbalanceada","base undersampling",
+                  "base oversampling","base under y oversampling"))
+```
+
+```{r message= FALSE, warning=FALSE}
+roc(as.numeric(base_test$TARGET), as.numeric(prediccion_test_both),plot = TRUE, legacy.axes = TRUE,
+    percent = TRUE, xlab = "% Falsos positivos",
+    ylab = "% verdaderos postivios", col = "red", lwd = 2,
+    print.auc = TRUE)
+```
+
+
+### Visualizacion de importancia relativa de cada variable del modelo
+
+```{r message= FALSE, warning=FALSE}
+modeloRF_dataOriginal
+```
+
+```{r message= FALSE, warning=FALSE}
+varImpPlot(modeloRF_dataOriginal)
+```
+
+```{r message= FALSE, warning=FALSE}
+modeloRF_dataUnder
+```
+
+```{r message= FALSE, warning=FALSE}
+varImpPlot(modeloRF_dataUnder)
+```
+
+```{r message= FALSE, warning=FALSE}
+modeloRF_dataOver
+```
+
+```{r message= FALSE, warning=FALSE}
+varImpPlot(modeloRF_dataOver)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+modeloRF_dataBoth
+```
+
+```{r message= FALSE, warning=FALSE}
+varImpPlot(modeloRF_dataBoth)
+```
+
+
+Matriz de confusion de la base de entrenamiento under y oversampling
+
+
+```{r message= FALSE, warning=FALSE}
+prediccion_train_both <- predict(modeloRF_dataBoth, newdata = base_balanceada_both, type="class")
+cm <- confusionMatrix(factor(prediccion_train_both), factor(base_balanceada_both$TARGET), dnn = c("Prediccion", "Referencia"))
+cm
+```
+
+```{r message= FALSE, warning=FALSE}
+plt <- as.data.frame(cm$table)
+plt$Prediccion <- factor(plt$Prediccion, levels=rev(levels(plt$Prediccion)))
+
+ggplot(plt, aes(Prediccion,Referencia, fill= Freq)) +
+        geom_tile() + geom_text(aes(label=Freq)) +
+        scale_fill_gradient(low="white", high="#009194") +
+        labs(x = "Real",y = "Prediccion") +
+        scale_x_discrete(labels=c("EAC","NO EAC")) +
+        scale_y_discrete(labels=c("NO EAC","EAC"))
+```
+
+
+
+
+```{r message= FALSE, warning=FALSE}
+prediccion_test_both <- predict(modeloRF_dataBoth, newdata = base_test, type="class")
+cm <- confusionMatrix(factor(prediccion_test_both), factor(base_test$TARGET), dnn = c("Prediccion", "Referencia"))
+cm
+```
+
+```{r message= FALSE, warning=FALSE}
+plt <- as.data.frame(cm$table)
+plt$Prediccion <- factor(plt$Prediccion, levels=rev(levels(plt$Prediccion)))
+
+ggplot(plt, aes(Prediccion,Referencia, fill= Freq)) +
+        geom_tile() + geom_text(aes(label=Freq)) +
+        scale_fill_gradient(low="white", high="#009194") +
+        labs(x = "Real",y = "Prediccion") +
+        scale_x_discrete(labels=c("EAC","NO EAC")) +
+        scale_y_discrete(labels=c("NO EAC","EAC"))
+```
+
+
+
+## MODELO KNN
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(5) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_train
+cv_modeloKNN1_dataOriginal <- lapply(folds, function(x){
+  train_fold <- base_train[-x, ]
+  test_fold <- base_train[x, ]
+  modelo_knn <-knn(train = train_fold, test=test_fold, cl = train_fold$TARGET, k=2)
+  cm <- table(test_fold$TARGET, modelo_knn)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloKNN1_dataOriginal <- mean(as.numeric(cv_modeloKNN1_dataOriginal))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada: %f", precision_modeloKNN1_dataOriginal)
+```
+
+```{r message= FALSE, warning=FALSE}
+set.seed(5) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_balanceada_under
+#cv_modeloKNN1_dataUnder <- lapply(folds, function(x){
+#  train_fold <- base_balanceada_under[-x, ]
+#  test_fold <- base_balanceada_under[x, ]
+#  modelo_knn <- knn(train = train_fold, test=test_fold, cl = train_fold$TARGET, k=2)
+#  cm <- table(test_fold$TARGET, modelo_knn)
+#  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+#  return(precision)
+#})
+#precision_modeloKNN1_dataUnder <- mean(as.numeric(cv_modeloKNN1_dataUnder))
+
+#sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada UNDERSAMPLING: %f", precision_modeloKNN1_dataUnder)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(5) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_balanceada_over
+cv_modeloKNN1_dataOver <- lapply(folds, function(x){
+  train_fold <- base_balanceada_over[-x, ]
+  test_fold <- base_balanceada_over[x, ]
+  modelo_knn <- knn(train = train_fold, test=test_fold, cl = train_fold$TARGET, k=2)
+  cm <- table(test_fold$TARGET, modelo_knn)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloKNN1_dataOver <- mean(as.numeric(cv_modeloKNN1_dataOver))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada OVERSAMPLING: %f", precision_modeloKNN1_dataOver)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(5) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_balanceada_both
+cv_modeloKNN1_dataBoth <- lapply(folds, function(x){
+  train_fold <- base_balanceada_both[-x, ]
+  test_fold <- base_balanceada_both[x, ]
+  modelo_knn <- knn(train = train_fold, test=test_fold, cl = train_fold$TARGET, k=2)
+  cm <- table(test_fold$TARGET, modelo_knn)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloKNN1_dataBoth <- mean(as.numeric(cv_modeloKNN1_dataBoth))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada UNDER Y OVERSAMPLING: %f", precision_modeloKNN1_dataBoth)
+```
+
+
+Se evalua los modelos sobre el conjunto de test que toma el 30% de los valores de la base final.
+
+```{r message= FALSE, warning=FALSE}
+set.seed(5) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# precision con la evaluacion sobre test
+modelo_knn_original <- knn(train = base_train[,-15], test=base_test[,-15], cl = base_train$TARGET, k=2)
+cm1 <- table(base_test$TARGET, modelo_knn_original)
+precision1 <- (cm1[1,1] + cm1[2,2]) / (cm1[1,1] + cm1[2,2] + cm1[1,2] + cm1[2,1])
+sprintf("Precision sobre el base_test del modelo original: %f ",as.numeric(precision1))
+
+modelo_knn_under <-knn(train = base_balanceada_under[,-15], test=base_test[,-15], cl = base_balanceada_under$TARGET, k=2)
+cm2 <- table(base_test$TARGET, modelo_knn_under)
+precision2 <- (cm2[1,1] + cm2[2,2]) / (cm2[1,1] + cm2[2,2] + cm2[1,2] + cm2[2,1])
+sprintf("Precision sobre el base_test del modelo undersampling: %f ",as.numeric(precision2))
+
+modelo_knn_over <-knn(train = base_balanceada_over[,-15], test=base_test[,-15], cl = base_balanceada_over$TARGET, k=2)
+cm3 <- table(base_test$TARGET, modelo_knn_over)
+precision3 <- (cm3[1,1] + cm3[2,2]) / (cm3[1,1] + cm3[2,2] + cm3[1,2] + cm3[2,1])
+sprintf("Precision sobre el base_test del modelo oversampling: %f ",as.numeric(precision3))
+
+modelo_knn_both <-knn(train = base_balanceada_both[,-15], test=base_test[,-15], cl = base_balanceada_both$TARGET, k=2)
+cm4 <- table(base_test$TARGET, modelo_knn_both)
+precision4 <- (cm4[1,1] + cm4[2,2]) / (cm4[1,1] + cm4[2,2] + cm4[1,2] + cm4[2,1])
+sprintf("Precision sobre el base_test del modelo under y oversampling: %f ",as.numeric(precision4))
+```
+
+
+
+
+
+## MODELO SVM
+
+Las Máquinas de Soporte Vectorial (Support Vector Machines SVMs) son un conjunto de algoritmos de aprendizaje supervisados que desarrollan métodos relacionados con los problemas de clasificación y regresión.
+
+
+
+```{r message= FALSE, warning=FALSE}
+### MODELO SVM
+
+modelo_svm  <- TARGET ~ ACC_crec + ACL_crec + RAG_crec + TESORERIA_crec + 
+                SOLVENCIA_crec + ENDEUDAMIENTO_crec + RENTABILIDAD_crec +
+                FONDO_MANIOBRA_crec + RATIO_COBERTURA_INTERES_crec + EDAD + 
+                DEPARTAMENTO + MODIFICACIONESREG + IMPORT + EXPORT
+
+```
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(6) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_train
+cv_modeloSVM_dataOriginal <- lapply(folds, function(x){
+  train_fold <- base_train[-x, ]
+  test_fold <- base_train[x, ]
+  svm_train <- svm(modelo_svm, data = train_fold, kernel="linear", cost = 2, gamma = 0.1)
+  y_pred_dataOriginal <- predict(svm_train, newdata=test_fold[,-15])
+  cm <- table(test_fold$TARGET, y_pred_dataOriginal)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloSVM_dataOriginal <- mean(as.numeric(cv_modeloSVM_dataOriginal))
+
+print("SVM LINEAL")
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada: %f", precision_modeloSVM_dataOriginal)
+```
+
+```{r message= FALSE, warning=FALSE}
+set.seed(6) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_train
+cv_modeloSVM_dataOriginal <- lapply(folds, function(x){
+  train_fold <- base_train[-x, ]
+  test_fold <- base_train[x, ]
+  svm_train <- svm(modelo_svm, data = train_fold, kernel="radial", cost = 2, gamma = 0.1)
+  y_pred_dataOriginal <- predict(svm_train, test_fold[,-15])
+  cm <- table(test_fold$TARGET, y_pred_dataOriginal)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloSVM_dataOriginal <- mean(as.numeric(cv_modeloSVM_dataOriginal))
+
+print("SVM RADIAL")
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada: %f", precision_modeloSVM_dataOriginal)
+```
+
+```{r message= FALSE, warning=FALSE}
+set.seed(6) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_balanceada_under
+#cv_modeloSVM_dataUnder <- lapply(folds, function(x){
+#  train_fold <- base_balanceada_under[-x, ]
+#  test_fold <- base_balanceada_under[x, ]
+#  svm_train <- svm(modelo_svm, data = train_fold, kernel="linear", cost = 2, gamma = 0.1)
+#  y_pred_dataUnder <- predict(svm_train, test_fold[,-15])
+#  cm <- table(test_fold$TARGET, y_pred_dataUnder)
+#  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+#  return(precision)
+#})
+#precision_modeloSVM_dataUnder <- mean(as.numeric(cv_modeloSVM_dataUnder))
+
+#print("SVM LINEAL")
+#sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada UNDERSAMPLING: %f", precision_modeloSVM_dataUnder)
+```
+
+```{r message= FALSE, warning=FALSE}
+set.seed(6) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_balanceada_under
+#cv_modeloSVM_dataUnder <- lapply(folds, function(x){
+#  train_fold <- base_balanceada_under[-x, ]
+#  test_fold <- base_balanceada_under[x, ]
+#  svm_train <- svm(modelo_svm, data = train_fold, kernel="radial", cost = 2, gamma = 0.1)
+#  y_pred_dataUnder <- predict(svm_train, newdata=test_fold)
+#  cm <- table(test_fold$TARGET, y_pred_dataUnder)
+#  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+#  return(precision)
+#})
+#precision_modeloSVM_dataUnder <- mean(as.numeric(cv_modeloSVM_dataUnder))
+
+#print("SVM RADIAL")
+#sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada UNDERSAMPLING: %f", precision_modeloSVM_dataUnder)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(6) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_balanceada_over
+cv_modeloSVM_dataOver <- lapply(folds, function(x){
+  train_fold <- base_balanceada_over[-x, ]
+  test_fold <- base_balanceada_over[x, ]
+  svm_train <- svm(modelo_svm, data = train_fold, kernel="linear", cost = 2, gamma = 0.1)
+  y_pred_dataOver <- predict(svm_train, test_fold[,-15])
+  cm <- table(test_fold$TARGET, y_pred_dataOver)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloSVM_dataOver <- mean(as.numeric(cv_modeloSVM_dataOver))
+
+print("SVM LINEAL")
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada OVERSAMPLING: %f", precision_modeloSVM_dataOver)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(6) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_balanceada_over
+cv_modeloSVM_dataOver <- lapply(folds, function(x){
+  train_fold <- base_balanceada_over[-x, ]
+  test_fold <- base_balanceada_over[x, ]
+  svm_train <- svm(modelo_svm, data = train_fold, kernel="radial", cost = 2, gamma = 0.1)
+  y_pred_dataOver <- predict(svm_train, test_fold[,-15])
+  cm <- table(test_fold$TARGET, y_pred_dataOver)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloSVM_dataOver <- mean(as.numeric(cv_modeloSVM_dataOver))
+
+print("SVM RADIAL")
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada OVERSAMPLING: %f", precision_modeloSVM_dataOver)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(6) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_balanceada_both
+cv_modeloSVM_dataBoth <- lapply(folds, function(x){
+  train_fold <- base_balanceada_both[-x, ]
+  test_fold <- base_balanceada_both[x, ]
+  svm_train <- svm(modelo_svm, data = train_fold, kernel="linear", cost = 2, gamma = 0.1)
+  y_pred_dataBoth <- predict(svm_train, test_fold[,-15])
+  cm <- table(test_fold$TARGET, y_pred_dataBoth)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloSVM_dataBoth <- mean(as.numeric(cv_modeloSVM_dataBoth))
+
+print("SVM LINEAL")
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada UNDER Y OVERSAMPLING: %f", precision_modeloSVM_dataBoth)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(6) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_balanceada_both
+cv_modeloSVM_dataBoth <- lapply(folds, function(x){
+  train_fold <- base_balanceada_both[-x, ]
+  test_fold <- base_balanceada_both[x, ]
+  svm_train <- svm(modelo_svm, data = train_fold, kernel="radial", cost = 2, gamma = 0.1)
+  y_pred_dataBoth <- predict(svm_train, test_fold[,-15])
+  cm <- table(test_fold$TARGET, y_pred_dataBoth)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloSVM_dataBoth <- mean(as.numeric(cv_modeloSVM_dataBoth))
+
+print("SVM RADIAL")
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada UNDER Y OVERSAMPLING: %f", precision_modeloSVM_dataBoth)
+```
+
+
+Se evalua los modelos sobre el conjunto de test que toma el 30% de los valores de la base final.
+
+```{r message= FALSE, warning=FALSE}
+# precision con la evaluacion sobre test
+modeloSVM_dataOriginal = svm(modelo_svm, data = base_train, kernel="linear", cost = 2, gamma = 0.1)
+prediccion_test <- predict(modeloSVM_dataOriginal, newdata = base_test, type="class")
+cm1 <- table(base_test$TARGET, prediccion_test)
+precision1 <- (cm1[1,1] + cm1[2,2]) / (cm1[1,1] + cm1[2,2] + cm1[1,2] + cm1[2,1])
+sprintf("Precision sobre el base_test del modelo original (LINEAL): %f ",as.numeric(precision1))
+
+modeloSVM_dataUnder = svm(modelo_svm, data = base_balanceada_under, kernel="linear", cost = 10, gamma = 0.1)
+prediccion_test_under <- predict(modeloSVM_dataUnder, newdata = base_test, type="class")
+cm2 <- table(base_test$TARGET, prediccion_test_under)
+precision2 <- (cm2[1,1] + cm2[2,2]) / (cm2[1,1] + cm2[2,2] + cm2[1,2] + cm2[2,1])
+sprintf("Precision sobre el base_test del modelo undersampling (LINEAL): %f ",as.numeric(precision2))
+
+modeloSVM_dataOver = svm(modelo_svm, data = base_balanceada_over, kernel="linear", cost = 10, gamma = 0.1)
+prediccion_test_over <- predict(modeloSVM_dataOver, newdata = base_test, type="class")
+cm3 <- table(base_test$TARGET, prediccion_test_over)
+precision3 <- (cm3[1,1] + cm3[2,2]) / (cm3[1,1] + cm3[2,2] + cm3[1,2] + cm3[2,1])
+sprintf("Precision sobre el base_test del modelo oversampling (LINEAL): %f ",as.numeric(precision3))
+
+modeloSVM_dataBoth = svm(modelo_svm, data = base_balanceada_both, kernel="linear", cost = 10, gamma = 0.1)
+prediccion_test_both <- predict(modeloSVM_dataBoth, newdata = base_test, type="class")
+cm4 <- table(base_test$TARGET, prediccion_test_both)
+precision4 <- (cm4[1,1] + cm4[2,2]) / (cm4[1,1] + cm4[2,2] + cm4[1,2] + cm4[2,1])
+sprintf("Precision sobre el base_test del modelo under y oversampling (LINEAL): %f ",as.numeric(precision4))
+```
+
+
+Curvas ROC
+
+
+```{r message= FALSE, warning=FALSE}
+roc.curve(base_test$TARGET, prediccion_test, xlab="1-ESpecificidad",ylab="Sensibilidad")
+roc.curve(base_test$TARGET, prediccion_test_under, add.roc=TRUE, col=2)
+roc.curve(base_test$TARGET, prediccion_test_over, add.roc=TRUE, col=3)
+roc.curve(base_test$TARGET, prediccion_test_both, add.roc=TRUE, col=4)
+legend("bottomright",col=1:4, lwd = 3,
+       legend = c("Curva ROC base desbalanceada","Curva ROC base undersampling",
+                  "Curva ROC base oversampling","Curva ROC base under y oversampling"))
+```
+
+
+
+
+```{r message= FALSE, warning=FALSE}
+# precision con la evaluacion sobre test
+modeloSVM_dataOriginal = svm(modelo_svm, data = base_train, kernel="radial", cost = 2, gamma = 0.1)
+prediccion_test <- predict(modeloSVM_dataOriginal, newdata = base_test, type="class")
+cm1 <- table(base_test$TARGET, prediccion_test)
+precision1 <- (cm1[1,1] + cm1[2,2]) / (cm1[1,1] + cm1[2,2] + cm1[1,2] + cm1[2,1])
+sprintf("Precision sobre el base_test del modelo original (RADIAL): %f ",as.numeric(precision1))
+
+modeloSVM_dataUnder = svm(modelo_svm, data = base_balanceada_under, kernel="radial", cost = 10, gamma = 0.1)
+prediccion_test_under <- predict(modeloSVM_dataUnder, newdata = base_test, type="class")
+cm2 <- table(base_test$TARGET, prediccion_test_under)
+precision2 <- (cm2[1,1] + cm2[2,2]) / (cm2[1,1] + cm2[2,2] + cm2[1,2] + cm2[2,1])
+sprintf("Precision sobre el base_test del modelo undersampling (RADIAL): %f ",as.numeric(precision2))
+
+modeloSVM_dataOver = svm(modelo_svm, data = base_balanceada_over, kernel="radial", cost = 10, gamma = 0.1)
+prediccion_test_over <- predict(modeloSVM_dataOver, newdata = base_test, type="class")
+cm3 <- table(base_test$TARGET, prediccion_test_over)
+precision3 <- (cm3[1,1] + cm3[2,2]) / (cm3[1,1] + cm3[2,2] + cm3[1,2] + cm3[2,1])
+sprintf("Precision sobre el base_test del modelo oversampling (RADIAL): %f ",as.numeric(precision3))
+
+modeloSVM_dataBoth = svm(modelo_svm, data = base_balanceada_both, kernel="radial", cost = 10, gamma = 0.1)
+prediccion_test_both <- predict(modeloSVM_dataBoth, newdata = base_test, type="class")
+cm4 <- table(base_test$TARGET, prediccion_test_both)
+precision4 <- (cm4[1,1] + cm4[2,2]) / (cm4[1,1] + cm4[2,2] + cm4[1,2] + cm4[2,1])
+sprintf("Precision sobre el base_test del modelo under y oversampling (RADIAL): %f ",as.numeric(precision4))
+```
+
+```{r message= FALSE, warning=FALSE}
+roc.curve(base_test$TARGET, prediccion_test, xlab="1-ESpecificidad",ylab="Sensibilidad")
+roc.curve(base_test$TARGET, prediccion_test_under, add.roc=TRUE, col=2)
+roc.curve(base_test$TARGET, prediccion_test_over, add.roc=TRUE, col=3)
+roc.curve(base_test$TARGET, prediccion_test_both, add.roc=TRUE, col=4)
+legend("bottomright",col=1:4, lwd = 3,
+       legend = c("base desbalanceada","base undersampling",
+                  "base oversampling","base under y oversampling"))
+```
+
+
+## MODELO DE NAIVE BAYES
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_train
+cv_modeloNB_dataOriginal <- lapply(folds, function(x){
+  train_fold <- base_train[-x, ]
+  test_fold <- base_train[x, ]
+  modeloNB <- naiveBayes(TARGET ~ ., data = train_fold)
+  y_pred_dataOriginal <- predict(modeloNB, newdata=test_fold, type = "class")
+  cm <- table(test_fold$TARGET, y_pred_dataOriginal)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloNB_dataOriginal <- mean(as.numeric(cv_modeloNB_dataOriginal))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada: %f", precision_modeloNB_dataOriginal)
+```
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_balanceada_under
+cv_modeloNB_dataUnder <- lapply(folds, function(x){
+  train_fold <- base_balanceada_under[-x, ]
+  test_fold <- base_balanceada_under[x, ]
+  modeloNB <- naiveBayes(TARGET ~ ., data = train_fold)
+  y_pred_dataUnder <- predict(modeloNB, newdata=test_fold, type = "class")
+  cm <- table(test_fold$TARGET, y_pred_dataUnder)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloNB_dataUnder <- mean(as.numeric(cv_modeloNB_dataUnder))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada UNDERSAMPLING: %f", precision_modeloNB_dataUnder)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_balanceada_over
+cv_modeloNB_dataOver <- lapply(folds, function(x){
+  train_fold <- base_balanceada_over[-x, ]
+  test_fold <- base_balanceada_over[x, ]
+  modeloNB <- naiveBayes(TARGET ~ ., data = train_fold)
+  y_pred_dataOver <- predict(modeloNB, newdata=test_fold, type = "class")
+  cm <- table(test_fold$TARGET, y_pred_dataOver)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloNB_dataOver <- mean(as.numeric(cv_modeloNB_dataOver))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada OVERSAMPLING: %f", precision_modeloNB_dataOver)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7) # NOTA: Fijamos esta semilla para ilustrar dependencia
+# modelo con base_balanceada_both
+cv_modeloNB_dataBoth <- lapply(folds, function(x){
+  train_fold <- base_balanceada_both[-x, ]
+  test_fold <- base_balanceada_both[x, ]
+  modeloNB <- naiveBayes(TARGET ~ ., data = train_fold)
+  y_pred_dataBoth <- predict(modeloNB, newdata=test_fold, type = "class")
+  cm <- table(test_fold$TARGET, y_pred_dataBoth)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloNB_dataBoth <- mean(as.numeric(cv_modeloNB_dataBoth))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada UNDER Y OVERSAMPLING: %f", precision_modeloNB_dataBoth)
+```
+
+
+Se evalua los modelos sobre el conjunto de test que toma el 30% de los valores de la base final.
+
+```{r message= FALSE, warning=FALSE}
+# precision con la evaluacion sobre test
+modeloNB_dataOriginal = naiveBayes(TARGET ~ ., data = base_train)
+prediccion_test <- predict(modeloNB_dataOriginal, newdata = base_test, type="class")
+cm1 <- table(base_test$TARGET, prediccion_test)
+precision1 <- (cm1[1,1] + cm1[2,2]) / (cm1[1,1] + cm1[2,2] + cm1[1,2] + cm1[2,1])
+sprintf("Precision sobre el base_test del modelo original: %f ",as.numeric(precision1))
+
+modeloNB_dataUnder = naiveBayes(TARGET ~ ., data = base_balanceada_under)
+prediccion_test_under <- predict(modeloNB_dataUnder, newdata = base_test, type="class")
+cm2 <- table(base_test$TARGET, prediccion_test_under)
+precision2 <- (cm2[1,1] + cm2[2,2]) / (cm2[1,1] + cm2[2,2] + cm2[1,2] + cm2[2,1])
+sprintf("Precision sobre el base_test del modelo undersampling: %f ",as.numeric(precision2))
+
+modeloNB_dataOver = naiveBayes(TARGET ~ ., data = base_balanceada_over)
+prediccion_test_over <- predict(modeloNB_dataOver, newdata = base_test, type="class")
+cm3 <- table(base_test$TARGET, prediccion_test_over)
+precision3 <- (cm3[1,1] + cm3[2,2]) / (cm3[1,1] + cm3[2,2] + cm3[1,2] + cm3[2,1])
+sprintf("Precision sobre el base_test del modelo oversampling: %f ",as.numeric(precision3))
+
+modeloNB_dataBoth = naiveBayes(TARGET ~ ., data = base_balanceada_both)
+prediccion_test_both <- predict(modeloNB_dataBoth, newdata = base_test, type="class")
+cm4 <- table(base_test$TARGET, prediccion_test_both)
+precision4 <- (cm4[1,1] + cm4[2,2]) / (cm4[1,1] + cm4[2,2] + cm4[1,2] + cm4[2,1])
+sprintf("Precision sobre el base_test del modelo under y oversampling: %f ",as.numeric(precision4))
+```
+
+Curvas ROC
+
+
+```{r message= FALSE, warning=FALSE}
+roc.curve(base_test$TARGET, prediccion_test, xlab="1-ESpecificidad",ylab="Sensibilidad")
+roc.curve(base_test$TARGET, prediccion_test_under, add.roc=TRUE, col=2)
+roc.curve(base_test$TARGET, prediccion_test_over, add.roc=TRUE, col=3)
+roc.curve(base_test$TARGET, prediccion_test_both, add.roc=TRUE, col=4)
+legend("bottomright",col=1:4, lwd = 3,
+       legend = c("base desbalanceada","base undersampling",
+                  "base oversampling","base under y oversampling"))
+```
+
+
+## MODELO REGRESION LOGISTICA
+
+```{r message= FALSE, warning=FALSE}
+modelo_lg <- TARGET ~ ACC_crec + ACL_crec + RAG_crec + TESORERIA_crec + 
+                SOLVENCIA_crec + ENDEUDAMIENTO_crec + RENTABILIDAD_crec +
+                FONDO_MANIOBRA_crec + RATIO_COBERTURA_INTERES_crec + EDAD + 
+                DEPARTAMENTO + MODIFICACIONESREG + IMPORT + EXPORT
+```
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7)
+# modelo con base_train
+cv_modeloLOGIT_dataOriginal <- lapply(folds, function(x){
+  train_fold <- base_train[-x, ]
+  test_fold <- base_train[x, ]
+  logit_train <- glm(modelo_lg, data = train_fold, family = binomial(link = "logit"), control = glm.control(maxit = 500))
+  y_pred_dataOriginal <- predict(logit_train, newdata=test_fold)
+  cm <- table(test_fold$TARGET, y_pred_dataOriginal)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloLOGIT_dataOriginal <- mean(as.numeric(cv_modeloLOGIT_dataOriginal))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada: %f", precision_modeloLOGIT_dataOriginal)
+```
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7)
+# modelo con base_balanceada_under
+cv_modeloLOGIT_dataUnder <- lapply(folds, function(x){
+  train_fold <- base_balanceada_under[-x, ]
+  test_fold <- base_balanceada_under[x, ]
+  logit_train <- glm(modelo_lg, data = train_fold, family = binomial(link = "logit"), control = glm.control(maxit = 500))
+  y_pred_dataUnder <- predict(logit_train, newdata=test_fold)
+  cm <- table(test_fold$TARGET, y_pred_dataUnder)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloLOGIT_dataUnder <- mean(as.numeric(cv_modeloLOGIT_dataUnder))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada UNDERSAMPLING: %f", precision_modeloLOGIT_dataUnder)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7)
+# modelo con base_balanceada_over
+cv_modeloLOGIT_dataOver <- lapply(folds, function(x){
+  train_fold <- base_balanceada_over[-x, ]
+  test_fold <- base_balanceada_over[x, ]
+  logit_train <- glm(modelo_lg, data = train_fold, family = binomial(link = "logit"), control = glm.control(maxit = 500))
+  y_pred_dataOver <- predict(logit_train, newdata=test_fold)
+  cm <- table(test_fold$TARGET, y_pred_dataOver)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloLOGIT_dataOver <- mean(as.numeric(cv_modeloLOGIT_dataOver))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada OVERSAMPLING: %f", precision_modeloLOGIT_dataOver)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7)
+# modelo con base_balanceada_both
+cv_modeloLOGIT_dataBoth <- lapply(folds, function(x){
+  train_fold <- base_balanceada_both[-x, ]
+  test_fold <- base_balanceada_both[x, ]
+  logit_train <- glm(modelo_lg, data = train_fold, family = binomial(link = "logit"), control = glm.control(maxit = 500))
+  y_pred_dataBoth <- predict(logit_train, newdata=test_fold)
+  cm <- table(test_fold$TARGET, y_pred_dataBoth)
+  precision <- (cm[1,1] + cm[2,2]) / (cm[1,1] + cm[2,2] +cm[1,2] + cm[2,1])
+  return(precision)
+})
+precision_modeloLOGIT_dataBoth <- mean(as.numeric(cv_modeloLOGIT_dataBoth))
+
+sprintf("Precision cross validation sobre la base de entrenamiento desbalanceada UNDER Y OVERSAMPLING: %f", precision_modeloLOGIT_dataBoth)
+```
+
+
+Se evalua los modelos sobre el conjunto de test que toma el 30% de los valores de la base final.
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7)
+# precision con la evaluacion sobre test
+logit_train_dataOriginal <- glm(modelo_lg, data = base_train, family = binomial(link = "logit"), control = glm.control(maxit = 500))
+prediccion_test <- predict(logit_train_dataOriginal, newdata = base_test)
+cm1 <- table(base_test$TARGET, prediccion_test)
+precision1 <- (cm1[1,1] + cm1[2,2]) / (cm1[1,1] + cm1[2,2] + cm1[1,2] + cm1[2,1])
+sprintf("Precision sobre el base_test del modelo original: %f ",as.numeric(precision1))
+
+logit_under_dataUnder <- glm(modelo_lg, data = base_balanceada_under, family = binomial(link = "logit"), control = glm.control(maxit = 500))
+prediccion_test_under <- predict(logit_under_dataUnder, newdata = base_test)
+cm2 <- table(base_test$TARGET, prediccion_test_under)
+precision2 <- (cm2[1,1] + cm2[2,2]) / (cm2[1,1] + cm2[2,2] + cm2[1,2] + cm2[2,1])
+sprintf("Precision sobre el base_test del modelo undersampling: %f ",as.numeric(precision2))
+
+logit_over_dataOver <- glm(modelo_lg, data = base_balanceada_over, family = binomial(link = "logit"), control = glm.control(maxit = 500))
+prediccion_test_over <- predict(logit_over_dataOver, newdata = base_test)
+cm3 <- table(base_test$TARGET, prediccion_test_over)
+precision3 <- (cm3[1,1] + cm3[2,2]) / (cm3[1,1] + cm3[2,2] + cm3[1,2] + cm3[2,1])
+sprintf("Precision sobre el base_test del modelo oversampling: %f ",as.numeric(precision3))
+
+logit_both_dataBoth <- glm(modelo_lg, data = base_balanceada_both, family = binomial(link = "logit"), control = glm.control(maxit = 500))
+prediccion_test_both <- predict(logit_both_dataBoth, newdata = base_test)
+cm4 <- table(base_test$TARGET, prediccion_test_both)
+precision4 <- (cm4[1,1] + cm4[2,2]) / (cm4[1,1] + cm4[2,2] + cm4[1,2] + cm4[2,1])
+sprintf("Precision sobre el base_test del modelo under y oversampling: %f ",as.numeric(precision4))
+```
+
+
+Curvas ROC
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7)
+roc.curve(base_test$TARGET, prediccion_test, xlab="1-ESpecificidad",ylab="Sensibilidad")
+roc.curve(base_test$TARGET, prediccion_test_under, add.roc=TRUE, col=2)
+roc.curve(base_test$TARGET, prediccion_test_over, add.roc=TRUE, col=3)
+roc.curve(base_test$TARGET, prediccion_test_both, add.roc=TRUE, col=4)
+legend("bottomright",col=1:4, lwd = 3,
+       legend = c("base desbalanceada","base undersampling",
+                  "base oversampling","base under y oversampling"))
+```
+
+
+Para las predicciones en los modelos de regresión logística, asumimos que si el modelo estimó una probabilidad de admisión por encima del 50% (0.5) para una observación, la predicción del modelo es que esa empresa es considerada EAC.
+
+Dado que un modelo logístico modela el logaritmo de ODDs, estas son las unidades en las que se devuelven las predicciones. Es necesario convertirlas de nuevo en probabilidad mediante la función logit. En R, la función predict() puede devolver directamente las probabilidades en lugar de los logODDs si se indica el argumento type="response".
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7)
+# base desbalanceada
+# prediccion en el conjunto de entrenamiento
+train_predictions <- predict(logit_train_dataOriginal, newdata = base_train, type = "response")
+# prediccion en el conjunto de prueba
+test_predictions <- predict(logit_train_dataOriginal, newdata = base_test, type = "response")
+
+# base balanceada con undersampling
+# prediccion en el conjunto de entrenamiento
+train_predictions_under <- predict(logit_under_dataUnder, newdata = base_balanceada_under, type = "response")
+# prediccion en el conjunto de prueba
+test_predictions_under <- predict(logit_under_dataUnder, newdata = base_balanceada_under, type = "response")
+
+# base balanceada con oversampling
+# prediccion en el conjunto de entrenamiento
+train_predictions_over <- predict(logit_over_dataOver, newdata = base_balanceada_over, type = "response")
+# prediccion en el conjunto de prueba
+test_predictions_over <- predict(logit_over_dataOver, newdata = base_balanceada_over, type = "response")
+
+# base balanceada con under y oversampling
+# prediccion en el conjunto de entrenamiento
+train_predictions_both <- predict(logit_both_dataBoth, newdata = base_balanceada_both, type = "response")
+# prediccion en el conjunto de prueba
+test_predictions_both <- predict(logit_both_dataBoth, newdata = base_balanceada_both, type = "response")
+```
+
+
+### Evaluacion de los modelos
+
+* Base desbalanceada
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7)
+anova(logit_train_dataOriginal, test = "Chisq")
+```
+
+* Base balanceada con undersampling
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7)
+anova(logit_under_dataUnder, test = "Chisq")
+```
+
+
+* Base balanceada con oversampling
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7)
+anova(logit_over_dataOver, test = "Chisq")
+```
+
+
+* Base balanceada con under y oversampling
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7)
+anova(logit_both_dataBoth, test = "Chisq")
+```
+
+Para determinar si los predictores introducidos en un modelo de regresión logística contribuyen de forma significativa se emplea el estadístico Z y el test Wald chi-test. Este es el método utilizado para calcular los p-values que se muestran al hacer summary() del modelo. Con esta prueba ANOVA se observa que para cada base de entrenamiento, el modelo de regresión logística considea diferentes variables como significativas para su modelo y la identificacion de las empresas EAC.
+
+
+### Análisis de los summary de los modelos de regresión logística
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7)
+summary(logit_train_dataOriginal)
+```
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7)
+summary(logit_under_dataUnder)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7)
+summary(logit_over_dataOver)
+```
+
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7)
+summary(logit_both_dataBoth)
+```
+
+
+Analizando los summary de los 4 modelos de regresión logística creados, se obtiene que
+
+* Según el summary del modelo con la base de entrenamiento desbalanceada, las variables TESORERIA, EDAD Y DEPARTAMENTO si contribuyen de manera significativa para que una empresa sea considerada EAC.
+
+* En el modelo con la base de entrenamiento undersampling, ninguna variable es significativa para el modelo.
+
+* Para el modelo con la base de entrenamiento oversampling, las variables ACC, ACL, RAG, TESORERIA, FONDO DE MANIOBRA, EDAD, DEPARTAMENTO, IMPORT Y EXPORT influyen en la identificación de las empresas de Alto Crecimiento. Este es el primer modelo donde la base de entrenamiento oversampling maneja bien tener varias variables y muestras de los grupos EAC y no EAC.
+
+* En el modelo de regresión logística entrenado con undersampling y oversampling, las variales ACC, ACL, RAG, TESORERIA, ENDEUDAMIENTO, FONDO DE MANIOBRA, EDAD, DEPARTAMENTO, IMPORT Y EXPORT son variables que contribuyen de forma significativa al modelo.
+
+
+### Predicciones de los modelos
+
+Para este estudio se va a emplear un threshold de 0.5. Si la probabilidad de que la variable adquiera el valor 1 (se convierta en EAC) es superior a 0.5, se asigna a este nivel, si es menor se asigna al 0 (no es EAC).
+
+* modelo base desbalanceada
+
+```{r message= FALSE, warning=FALSE}
+set.seed(7)
+logit.predicciones_train <- ifelse(test = logit_train_dataOriginal$fitted.values > 0.5, yes = 1, no = 0)
+mc.logit_train <- table(logit_train_dataOriginal$model$TARGET, logit.predicciones_train, dnn = c("observaciones", "predicciones"))
+mc.logit_train
+```
+
+
+```{r message= FALSE, warning=FALSE}
+library(vcd)
+
+mosaic(mc.logit_train, shade = T, colorize = T,
+       gp = gpar(fill = matrix(c("green3", "red2", "red2", "green3"), 2, 2)))
+```
+
+* modelo base balanceada con modelo undersampling
+
+```{r message= FALSE, warning=FALSE}
+logit.predicciones_under <- ifelse(test = logit_under_dataUnder$fitted.values > 0.5, yes = 1, no = 0)
+mc.logit_under<- table(logit_under_dataUnder$model$TARGET, logit.predicciones_under, dnn = c("observaciones", "predicciones"))
+mc.logit_under
+```
+
+
+```{r message= FALSE, warning=FALSE}
+library(vcd)
+
+mosaic(mc.logit_under, shade = T, colorize = T,
+       gp = gpar(fill = matrix(c("green3", "red2", "red2", "green3"), 2, 2)))
+```
+
+
+* modelo base balanceada con modelo oversampling
+
+```{r message= FALSE, warning=FALSE}
+logit.predicciones_over <- ifelse(test = logit_over_dataOver$fitted.values > 0.5, yes = 1, no = 0)
+mc.logit_over <- table(logit_over_dataOver$model$TARGET, logit.predicciones_over, dnn = c("observaciones", "predicciones"))
+mc.logit_over
+```
+
+
+```{r message= FALSE, warning=FALSE}
+library(vcd)
+
+mosaic(mc.logit_over, shade = T, colorize = T,
+       gp = gpar(fill = matrix(c("green3", "red2", "red2", "green3"), 2, 2)))
+```
+
+
+* modelo base balanceada con modelo undersampling y oversampling
+
+```{r message= FALSE, warning=FALSE}
+logit.predicciones_both <- ifelse(test = logit_both_dataBoth$fitted.values > 0.5, yes = 1, no = 0)
+mc.logit_both <- table(logit_both_dataBoth$model$TARGET, logit.predicciones_both, dnn = c("observaciones", "predicciones"))
+mc.logit_both
+```
+
+
+```{r message= FALSE, warning=FALSE}
+library(vcd)
+
+mosaic(mc.logit_both, shade = T, colorize = T,
+       gp = gpar(fill = matrix(c("green3", "red2", "red2", "green3"), 2, 2)))
+```
+
+Se observa, que un modelo de regresión logística mejora su prediccion si el numero de muestra aumenta. Es decir, este modelo funciona mejor con bases de datos con muestras parejas de observaciones clasificadas.
+
+Si nuestra pretensión es construir un modelo que identifique correctamente los admitidos, claramente podríamos mejorar. Esto lo haríamos 
+* a) agregando variables
+* b) transformando las existentes de forma tal que haya una relación más clara con la variable dependiente o 
+* c) cambiando el modelo.
+
+
+
+
+### MODELO REGRESION LOGISTICA con base de entrenamiento under y oversampling
+
+```{r message= FALSE, warning=FALSE}
+# funcion para la matriz de confusion
+confusion<-function(real,scoring,umbral){ 
+  conf<-table(real,scoring>=umbral)
+  if(ncol(conf)==2) return(conf) else return(NULL)
+}
+
+# funcion para metricas
+metricas<-function(matriz_conf){
+  acierto <- (matriz_conf[1,1] + matriz_conf[2,2]) / sum(matriz_conf) *100
+  precision <- matriz_conf[2,2] / (matriz_conf[2,2] + matriz_conf[1,2]) *100
+  cobertura <- matriz_conf[2,2] / (matriz_conf[2,2] + matriz_conf[2,1]) *100
+  F1 <- 2*precision*cobertura/(precision+cobertura)
+  salida<-c(acierto,precision,cobertura,F1)
+  return(salida)
+}
+
+# funcion para umbrales
+umbrales<-function(real,scoring){
+  umbrales<-data.frame(umbral=rep(0,times=19),acierto=rep(0,times=19),precision=rep(0,times=19),cobertura=rep(0,times=19),F1=rep(0,times=19))
+  cont <- 1
+  for (cada in seq(0.05,0.95,by = 0.05)){
+    datos<-metricas(confusion(real,scoring,cada))
+    registro<-c(cada,datos)
+    umbrales[cont,]<-registro
+    cont <- cont + 1
+  }
+  return(umbrales)
+}
+
+# funcion para curvas roc y auc
+roc<-function(prediction){
+  r<-performance(prediction,'tpr','fpr')
+  plot(r)
+}
+
+auc<-function(prediction){
+  a<-performance(prediction,'auc')
+  return(a@y.values[[1]])
+}
+ 
+```
+
+```{r message= FALSE, warning=FALSE}
+modelo_lg <- TARGET ~ ACC_crec + ACL_crec + RAG_crec + TESORERIA_crec + 
+                SOLVENCIA_crec + ENDEUDAMIENTO_crec + RENTABILIDAD_crec +
+                FONDO_MANIOBRA_crec + RATIO_COBERTURA_INTERES_crec + EDAD + 
+                DEPARTAMENTO + MODIFICACIONESREG + IMPORT + EXPORT
+```
+
+
+```{r message= FALSE, warning=FALSE}
+# como es una variable dicotómica, la familia es la binomial:
+logit_both <- glm(modelo_lg, data = base_balanceada_both, family = binomial(link = "logit"), control = glm.control(maxit = 500))
+summary(logit_both)
+```
+
+Evaluacion del modelo
+
+```{r message= FALSE, warning=FALSE}
+test_predictions1 <- predict(logit_both, newdata = base_test, type = "response")
+```
+
+Ahora tenemos que transformar la probabilidad obtenida en una decisión de si la empresa es EAC o no. Con la función umbrales probamos diferentes cortes.
+
+Calculo del umbral
+
+```{r message= FALSE, warning=FALSE}
+umb_rl1 <-umbrales(base_test$TARGET,test_predictions1)
+
+#Seleccionamos el umbral que maximiza la F1 (cuando empieza a decaer)
+umbral_final_rl1 <-umb_rl1[which.max(umb_rl1$F1),1]
+umbral_final_rl1
+```
+
+Como puede observarse en la tabla anterior, el indicador F1 crece a medida que los umbrales aumentan (esto es, se maximiza progresivamente la F1), pero llega a un punto que empieza a decrecer: umbral de 0.25
+
+Evaluamos la matriz de confusión y las métricas con el umbral optimizado
+
+```{r message= FALSE, warning=FALSE}
+confusion(base_test$TARGET,test_predictions1,umbral_final_rl1)
+```
+
+```{r message= FALSE, warning=FALSE}
+rl_metricas1 <- filter(umb_rl1, umbral==umbral_final_rl1)
+rl_metricas1
+```
+
+
+Evaluamos la ROC
+
+```{r message= FALSE, warning=FALSE}
+fitted.pred1 <- ifelse(test_predictions1 > 0.5,1,0)
+misClasificError1 <- mean(fitted.pred1 != base_test$TARGET)
+print(paste('Accuracy',1-misClasificError1))
+```
+
+```{r message= FALSE, warning=FALSE}
+library(ROCR)
+pr1 <- prediction(test_predictions1, base_test$TARGET)
+prf1 <- performance(pr1, measure = "tpr", x.measure = "fpr")
+plot(prf1, color = "blue", xlab="specificity", ylab="sensitivity")
+```
+
+```{r message= FALSE, warning=FALSE}
+# area bajo la curva
+auc1 <- performance(pr1, measure = "auc")
+auc1 <- auc1@y.values[[1]]
+auc1
+```
+
+
+Revisamos la significatividad DE RL y mantenemos todas las variables que tengan tres estrellas en alguna categoría, Entran las variables: ACC, ACL, RAG, TESORERIA, ENDEUDAMIENTO, FONDO MANIOBRA, EDAD, DEPARTAMENTO, IMPORT, EXPORT. Por tanto, lanzamos un segundo modelo con estas variables.
+
+
+```{r message= FALSE, warning=FALSE}
+modelo_lg2 <- TARGET ~ ACC_crec + ACL_crec + RAG_crec + TESORERIA_crec + 
+              ENDEUDAMIENTO_crec + FONDO_MANIOBRA_crec +  EDAD + 
+              DEPARTAMENTO + IMPORT + EXPORT
+logit_both2 <- glm(modelo_lg2, data = base_balanceada_both, family = binomial(link = "logit"), control = glm.control(maxit = 500))
+summary(logit_both2)
+```
+Vemos que ahora ya todas las variables tienen al menos una categoría con 3 estrellas de significación.
+
+Calculamos el pseudo R cuadrado de McFadden (“residual deviance” / “null deviance”): los resultados entre 0,2 y 0,4 indican un excelente ajuste del modelo.
+
+```{r message= FALSE, warning=FALSE}
+pr2 <- 1 -(logit_both2$deviance / logit_both2$null.deviance)
+pr2
+```
+Evaluacion del modelo
+
+
+```{r message= FALSE, warning=FALSE}
+test_predictions2 <- predict(logit_both2, newdata = base_test, type = "response")
+```
+
+Ahora tenemos que transformar la probabilidad obtenida en una decisión de si la empresa es EAC o no. Con la función umbrales probamos diferentes cortes.
+
+Calculo del umbral
+
+```{r message= FALSE, warning=FALSE}
+umb_rl2 <-umbrales(base_test$TARGET,test_predictions2)
+
+#Seleccionamos el umbral que maximiza la F1 (cuando empieza a decaer)
+umbral_final_rl2 <-umb_rl2[which.max(umb_rl2$F1),1]
+umbral_final_rl2
+```
+
+Como puede observarse en la tabla anterior, el indicador F1 crece a medida que los umbrales aumentan (esto es, se maximiza progresivamente la F1), pero llega a un punto que empieza a decrecer: umbral de 0.25
+
+Evaluamos la matriz de confusión y las métricas con el umbral optimizado
+
+```{r message= FALSE, warning=FALSE}
+confusion(base_test$TARGET,test_predictions2,umbral_final_rl2)
+```
+
+```{r message= FALSE, warning=FALSE}
+rl_metricas2 <- filter(umb_rl2, umbral==umbral_final_rl2)
+rl_metricas2
+```
+
+Evaluamos la ROC
+
+```{r message= FALSE, warning=FALSE}
+fitted.pred2 <- ifelse(test_predictions2 > 0.5,1,0)
+misClasificError2 <- mean(fitted.pred2 != base_test$TARGET)
+print(paste('Accuracy',1-misClasificError2))
+```
+
+```{r message= FALSE, warning=FALSE}
+library(ROCR)
+pr2 <- prediction(test_predictions2, base_test$TARGET)
+prf2 <- performance(pr2, measure = "tpr", x.measure = "fpr")
+plot(prf2, color = "blue", xlab="specificity", ylab="sensitivity")
+```
+
+```{r message= FALSE, warning=FALSE}
+# area bajo la curva
+auc2 <- performance(pr2, measure = "auc")
+auc2 <- auc2@y.values[[1]]
+auc2
+```
+
+
+
+# ANALISIS DE RESULTADOS
+
+Después de probar varios modelos de clasificación (ARBOL SIMPLE, RANDOM FOREST, KNN, SVM, REGRESIÓN LOGÍSTICA, NAIVE BAYES) con varias bases de entrenamiento (original desbalanceada, balance con undersamplig, balance con oversampling, balance con under y oversampling), el modelo que mejores resultados presenta es el de Random Forest.
+
